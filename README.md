@@ -1,4 +1,4 @@
-# GHL Analíticas
+# dashboard_cellarium
 
 A real-time sales and marketing intelligence dashboard built on top of the [GoHighLevel](https://www.gohighlevel.com/) CRM API. Designed for real estate teams — gives managers a clear picture of what every salesperson is doing without digging through the CRM.
 
