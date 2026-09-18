@@ -56,27 +56,27 @@ const rowFor = (rows: ReturnType<typeof buildCategoryBreakdown>, label: string) 
 };
 
 function main() {
-  // 1. Cubetas de estado: isWonOpp manda, no el status crudo.
+  // 1. Cubetas de estado: perdida por pipeline o status, ganada por isWonOpp.
+  //    Los casos de borde de Cellarium viven en verify-cellarium; aquí solo se
+  //    asegura que ESTA función los delega y no reimplementa nada.
   {
     assert.equal(statusBucket(opp({ status: "won" })), "ganada");
-    assert.equal(
-      statusBucket(opp({ status: "open", stage: "Ganado" })),
-      "ganada",
-      "etapa Ganado con status open cuenta como ganada (regla de isWonOpp)"
-    );
-    assert.equal(
-      statusBucket(opp({ status: "lost", stage: "Ganado" })),
-      "perdida",
-      "un lost explícito nunca es ganada, aunque viva en una etapa 'Ganado'"
-    );
+    assert.equal(statusBucket(opp({ status: "open", stage: "Cierre" })), "ganada", "la etapa Cierre gana sin cambiar el status");
+    assert.equal(statusBucket(opp({ status: "lost", stage: "Cierre" })), "perdida", "un lost explícito nunca es ganada");
     assert.equal(statusBucket(opp({ status: "abandoned" })), "perdida", "abandoned se pliega en perdida");
-    assert.equal(statusBucket(opp({ status: "open", stage: "Propuesta" })), "abierta");
+    assert.equal(statusBucket(opp({ status: "open", stage: "Contactado" })), "abierta");
+    assert.equal(
+      statusBucket({ ...opp({ status: "open" }), pipelineName: "Leads Perdidos" }),
+      "perdida",
+      "vivir en Leads Perdidos es perdida aunque el status diga open"
+    );
   }
 
   // 2. Meses: relleno de huecos intermedios y fila "Sin fecha".
   {
+    const won = opp({ createdAt: "2026-01-10T12:00:00.000Z", status: "won" });
     const rows = buildStatusByMonth([
-      opp({ createdAt: "2026-01-10T12:00:00.000Z", status: "won" }),
+      won,
       opp({ createdAt: "2026-04-02T12:00:00.000Z", status: "lost" }),
       opp({ createdAt: "2026-04-20T12:00:00.000Z", status: "open", stage: "Propuesta" }),
       opp({ createdAt: "" }),
@@ -93,7 +93,7 @@ function main() {
     assert.equal(rows[3].perdida, 1);
     assert.equal(rows[3].abierta, 1);
     assert.equal(rows[4].total, 2, "createdAt vacío e ilegible caen ambos en Sin fecha");
-    assert.deepEqual(rows[0].ids.ganada, ["o6"], "los ids del drill-down viajan con la cubeta");
+    assert.deepEqual(rows[0].ids.ganada, [won.id], "los ids del drill-down viajan con la cubeta");
     assert.equal(rows[rows.length - 1].label, "Sin fecha");
   }
 

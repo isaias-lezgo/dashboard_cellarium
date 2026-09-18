@@ -7,6 +7,7 @@
 // de bug por la que existen los scripts de verificación.
 import type { Opportunity } from "./types"
 import { isWonOpp } from "./opportunity-status"
+import { isLostOpp } from "./cellarium-rules"
 
 // ---------------------------------------------------------------------------
 // Estado
@@ -23,16 +24,16 @@ export const STATUS_LABELS: Record<StatusBucket, string> = {
 }
 
 /**
- * La cubeta de una oportunidad. "Ganada" se decide con isWonOpp(), no con el
- * `status` crudo: algunas cuentas registran la venta moviendo la oportunidad a
- * una etapa "Ganado" sin tocar el status, y el resto del panel ya cuenta así.
+ * La cubeta de una oportunidad. "Perdida" se decide con isLostOpp() —vive en
+ * "Leads Perdidos" o trae status lost/abandoned— y va PRIMERO: pipeline manda
+ * sobre un `won` extraviado. "Ganada" es isWonOpp(): status won o etapa Cierre.
  *
  * `abandoned` se pliega en "perdida" a propósito — no es una venta, y una cuarta
  * serie en un apilado cuesta más legibilidad de la que aporta.
  */
 export function statusBucket(opp: Opportunity): StatusBucket {
+  if (isLostOpp(opp)) return "perdida"
   if (isWonOpp(opp)) return "ganada"
-  if (opp.status === "lost" || opp.status === "abandoned") return "perdida"
   return "abierta"
 }
 

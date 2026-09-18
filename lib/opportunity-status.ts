@@ -8,9 +8,11 @@
 // stage-name based (no hardcoded stage IDs) to stay portable across locations.
 import type { Opportunity } from "./types"
 
-// "Negocio Ganado" / "Negocio Ganada(s)" (es) and "Won" / "Closed Won" (en).
-// Word-boundary on "won" avoids matching it as a substring of unrelated words.
-const WON_STAGE_PATTERN = /ganad[oa]|\bwon\b/i
+// "Negocio Ganado" / "Negocio Ganada(s)" (es), "Won" / "Closed Won" (en), y
+// "Cierre" — la última etapa del embudo Ventas de Cellarium. "Cierre" tiene que
+// ser la etapa ENTERA: un `\b` dejaría pasar "Pre-cierre" (el guion es frontera
+// de palabra), y esa etapa hipotética no es una venta.
+export const WON_STAGE_PATTERN = /ganad[oa]|\bwon\b|^\s*cierre\s*$/i
 
 export function isWonOpp(opp: Opportunity): boolean {
   if (opp.status === "won") return true
