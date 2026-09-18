@@ -15,6 +15,9 @@ import { isWonOpp } from "./opportunity-status"
 export const VENTAS_PIPELINE = { label: "Ventas", id: "ImCASVNiiPqszAbyXhmf" } as const
 export const LOST_PIPELINE = { label: "Leads Perdidos", id: "QaCg8OLw1hiQPs2dhsAA" } as const
 
+/** La zona horaria del cliente (San Luis Potosí). Las rutas de IA usan este mismo default. */
+export const PANEL_TIME_ZONE = "America/Mexico_City"
+
 /** Cubetas centinela — hueco de captura, no categoría del negocio. */
 export const NO_REASON_LABEL = "Sin motivo"
 export const NO_CAMPAIGN_LABEL = "Sin campaña"

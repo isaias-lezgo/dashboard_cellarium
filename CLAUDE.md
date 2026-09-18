@@ -20,8 +20,8 @@ advisors work what they have**. There is no money in the CRM (`monetaryValue` un
 all but 2 opps; the won ones carry 0). **Do not build revenue charts.**
 
 GHL sub-account `hqz4e06E3n5wYIxOoZ6V`, timezone `America/Mexico_City`. Panel reader:
-Hoganza's dirección. **One tab** ("Cellarium") plus "Asistente IA", three blocks:
-Embudo, Campañas, Sin atención. Design spec:
+Hoganza's dirección. **One tab** ("Cellarium") plus "Asistente IA", four blocks in the
+order dirección asked for: **Campañas, Embudo, Sin atención, Perdidas**. Design spec:
 `docs/superpowers/specs/2026-09-17-panel-cellarium-design.md`; plan under `plans/`.
 
 **Multi-tenancy is not a design concern here.** The roster code (`lib/clients.ts`,
@@ -57,7 +57,6 @@ pnpm verify:month-series # lib/month-series.ts — apilado por mes, plegado en "
 pnpm verify:lost-matrix  # lib/lost-reason-matrix.ts — motivo de pérdida × campaña
 pnpm verify:advisors     # lib/advisor-breakdown.ts — asesor × etapa + columna "Perdidas"
 pnpm verify:assignment   # lib/assignment-funnel.ts — universo sin-asesor vs. denominador del mes
-pnpm verify:task-backlog # lib/task-backlog.ts — cubetas de vencimiento por zona horaria
 pnpm verify:stale-matrix # lib/stale-opportunity-matrix.ts — cubetas de abandono sobre el embudo vivo
 pnpm verify:sync-store   # lib/sync-store.ts — gzip roundtrip, aislamiento por cliente, el candado
 npx tsc --noEmit         # REQUIRED: next build ignores TS errors, so a green build proves nothing
@@ -193,28 +192,7 @@ into every per-opportunity chart; keep that pattern. Its prop surface is the one
 drops in with no plumbing. Mounted, in order:
 
 - **`no-opportunity-card.tsx`** — "Contactos sin oportunidad", above everything (see above).
-- **Embudo**
-  - **`funnel-chart.tsx`** ("Embudo de ventas", `lib/funnel.ts`) — CSS bars, one per Ventas
-    stage in pipeline order, then Ganadas and Perdidas. It is a **photo of today**: GHL
-    keeps no stage history, so it counts where each lead *is*, not what it passed through;
-    the card says so. The **Cierre stage is not a step** (its opps are the won ones). `%`
-    is over the whole period **with lost in the denominator** — "2 % reached Meeting" only
-    means something next to the 58 % that was lost. Empty stages render at zero.
-  - **`opportunity-status-chart.tsx`** — ganada / abierta / perdida by creation month.
-  - **`lost-reason-matrix.tsx`** ("Motivos de pérdida", `lib/lost-reason-matrix.ts`) —
-    motivo × **campaña**; one column per opp so a row's horizontal sum is its total. Rows
-    group spellings under `categoryKey`. Today "Equivocado" is 732 of 1 091 (67 %), and
-    "Cellarium Formulario Junio 25 V1" alone contributes 294 of them with zero "No
-    contestó" — a form-quality finding, not a bug.
-  - **`advisor-stage-table.tsx`** — asesor × Ventas stage. Opps in Leads Perdidos go to
-    **one** `LOST_STAGE_LABEL` column ("Perdidas") via the `stageOf` option of
-    `buildAdvisorMatrix`, instead of ten reason columns. Column shading is per column;
-    "Sin asesor" is excluded from it. A deleted GHL user shows up as a raw id row
-    (`njTYv85ArMkSNHL14Fh6`, 1 opp) — CRM data, not a bug.
-  - **`assignment-funnel-chart.tsx`** ("Leads sin asesor por mes") — universe is
-    **only** opps without `assignedTo` (146 today), stacked by status; assigned ones only
-    feed `monthTotal`, the "% del mes" denominator. Legend lists only buckets with data.
-- **Campañas**
+- **Campañas** (first, by request)
   - **`campaign-breakdown-chart.tsx`** ("Leads por campaña", `lib/campaign-breakdown.ts`)
     — horizontal bars, one per campaign by volume, stacked by `statusBucket`; "Sin campaña"
     last, label in `MISSING_TEXT`. Y-axis labels are truncated with `tickFormatter`
@@ -228,15 +206,31 @@ drops in with no plumbing. Mounted, in order:
     `data-chart` so the `--color-<slot>` vars resolve. `monthKeyOf` is the local-time one
     from `opportunity-breakdown`, same as the status chart, so a lead lands in the same
     month in both cards.
-- **Sin atención** — `stale-opportunity-matrix.tsx` and `task-backlog-chart.tsx`, unchanged
-  except the universe is `isLiveOpp()`. Both ignore the global date filter ("sin atención
-  en 60 días" and "vencida" are conditions of TODAY), reading `allOpportunities` / `allTasks`
-  / `unfilteredOpportunities` instead of the filtered slices; they do respect asesor and
-  campaña because those come applied upstream. Keep the following, they are hard-won:
+- **Embudo**
+  - **`funnel-chart.tsx`** ("Embudo de ventas", `lib/funnel.ts`) — CSS bars, one per Ventas
+    stage in pipeline order, then Ganadas and Perdidas. It is a **photo of today**: GHL
+    keeps no stage history, so it counts where each lead *is*, not what it passed through;
+    the card says so. The **Cierre stage is not a step** (its opps are the won ones). `%`
+    is over the whole period **with lost in the denominator** — "2 % reached Meeting" only
+    means something next to the 58 % that was lost. Empty stages render at zero.
+  - **`opportunity-status-chart.tsx`** — ganada / abierta / perdida by creation month.
+  - **`advisor-stage-table.tsx`** — asesor × Ventas stage. Opps in Leads Perdidos go to
+    **one** `LOST_STAGE_LABEL` column ("Perdidas") via the `stageOf` option of
+    `buildAdvisorMatrix`, instead of ten reason columns. Column shading is per column;
+    "Sin asesor" is excluded from it. A deleted GHL user shows up as a raw id row
+    (`njTYv85ArMkSNHL14Fh6`, 1 opp) — CRM data, not a bug.
+  - **`assignment-funnel-chart.tsx`** ("Leads sin asesor por mes") — universe is
+    **only** opps without `assignedTo` (146 today), stacked by status; assigned ones only
+    feed `monthTotal`, the "% del mes" denominator. Legend lists only buckets with data.
+- **Sin atención** — `stale-opportunity-matrix.tsx`, unchanged except the universe is
+  `isLiveOpp()`. It ignores the global date filter ("sin atención en 60 días" is a
+  condition of TODAY), reading `allOpportunities` instead of the filtered slice; it does
+  respect asesor and campaña because those come applied upstream. Keep the following,
+  they are hard-won:
   - `unfilteredOpportunities` (the raw `data.opportunities`) is NOT redundant with
-    `allOpportunities`: the latter already went through the panel menus. The task backlog
-    uses it to tell a contact with NO opportunity (footnote, outside the aggregate) from
-    one whose opportunity was filtered out. Don't merge them.
+    `allOpportunities`: the latter already went through the panel menus. The
+    no-opportunity card uses it to tell a contact with NO opportunity from one whose
+    opportunity was filtered out. Don't merge them.
   - The message axis of the matrix does NOT come from the `dashboard-messages` dataset
     (that route brings the last 30 conversations PER USER, a sample). It comes from
     `app/api/conversation-activity`, which walks `/conversations/search` by cursor up to
@@ -253,9 +247,18 @@ drops in with no plumbing. Mounted, in order:
   - **Movement is `lastStageChangeAt`, never `updatedAt`.** Make flows and a WhatsApp bot
     push `updatedAt` on every automatic write.
 
+- **Perdidas** (last, by request)
+  - **`lost-reason-matrix.tsx`** ("Motivos de pérdida", `lib/lost-reason-matrix.ts`) —
+    motivo × **campaña**; one column per opp so a row's horizontal sum is its total. Rows
+    group spellings under `categoryKey`. Today "Equivocado" is 732 of 1 091 (67 %), and
+    "Cellarium Formulario Junio 25 V1" alone contributes 294 of them with zero "No
+    contestó" — a form-quality finding, not a bug.
+
 **Not mounted**: `export-report-button.tsx` (PDF export) exists and compiles but no
-dashboard mounts it; `opportunity-win-rate-chart.tsx` was deleted (4 wins in 15 months
-makes a win rate noise). Charts the VAEO panel had (sales pivot, sales by sucursal /
+dashboard mounts it; `opportunity-win-rate-chart.tsx` and `task-backlog-chart.tsx` (with
+`lib/task-backlog.ts`) were deleted — the first because 4 wins in 15 months makes a win
+rate noise, the second because dirección asked for it to go. `PANEL_TIME_ZONE` moved to
+`lib/cellarium-rules.ts`. Charts the VAEO panel had (sales pivot, sales by sucursal /
 servicio, lost by servicio, lost cross matrix, origen/canal rankings, HubSpot toggle) are
 recoverable from git history — check there before rebuilding one from scratch.
 
@@ -440,7 +443,6 @@ bug class these modules were extracted to kill.
 | `lib/advisor-breakdown.ts` | la matriz asesor × etapa (+ `stageOf`, `LOST_STAGE_LABEL`) y `panelStageOrder` |
 | `lib/assignment-funnel.ts` | el universo de las oportunidades sin asesor, por mes y por estatus |
 | `lib/stale-opportunity-matrix.ts` | las cubetas de abandono en los dos ejes sobre `isLiveOpp` |
-| `lib/task-backlog.ts` | las cubetas de vencimiento de tareas, en `America/Mexico_City` |
 | `lib/pauta.ts` | what counts as "de pauta" + campaign-name resolution (below) |
 | `lib/source-platform.ts` | "Origen de lead" platform bucketing + `PLATFORM_COLORS` / `PLATFORM_ORDER` |
 | `lib/csv.ts` | CSV cell escaping (`csvCell`, `buildCsv`) |

@@ -18,7 +18,7 @@ import { buildDrillExport } from "@/lib/drill-export"
 import { triggerDownload } from "@/lib/download"
 import { cn } from "@/lib/utils"
 import { MISSING_TEXT } from "./dashboard-ui"
-import { PANEL_TIME_ZONE } from "@/lib/task-backlog"
+import { PANEL_TIME_ZONE } from "@/lib/cellarium-rules"
 import { DollarSign, User, Tag, ChevronRight, TrendingUp, Phone, Mail, Download, ListChecks } from "lucide-react"
 
 const STAGE_CLASSES: Record<string, string> = {

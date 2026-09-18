@@ -23,13 +23,14 @@ import { CampaignBreakdownChart } from "./campaign-breakdown-chart"
 import { CampaignMonthChart } from "./campaign-month-chart"
 import { AssignmentFunnelChart } from "./assignment-funnel-chart"
 import { StaleOpportunityMatrix } from "./stale-opportunity-matrix"
-import { TaskBacklogChart } from "./task-backlog-chart"
 import { LostReasonMatrix } from "./lost-reason-matrix"
 import { NoOpportunityCard } from "./no-opportunity-card"
 
 /**
- * El panel de Cellarium: un solo negocio, tres bloques —embudo, campañas y sin
- * atención— sobre los dos pipelines de la cuenta (Ventas ∪ Leads Perdidos).
+ * El panel de Cellarium: un solo negocio, cuatro bloques —campañas, embudo, sin
+ * atención y perdidas— sobre los dos pipelines de la cuenta (Ventas ∪ Leads
+ * Perdidos). El orden es el que pidió dirección: campañas arriba, motivos de
+ * pérdida hasta abajo.
  *
  * La prop surface se hereda del panel de VAEO a propósito: `app/page.tsx`
  * alimenta las slices filtradas por fecha más los sets `all*` sin filtrar como
@@ -51,7 +52,7 @@ export interface CellariumDashboardProps {
   allPautas?: Pauta[]
   pipelines?: Pipeline[]
   tasks?: Task[]
-  /** Tareas SIN filtrar por fecha — el rezago se mide contra hoy, no contra el periodo. */
+  /** Tareas SIN filtrar por fecha. Hoy ningún chart las lee; app/page.tsx las sigue pasando. */
   allTasks?: Task[]
   /**
    * Oportunidades crudas: sin filtros de panel. Solo para distinguir al contacto
@@ -84,7 +85,6 @@ export function CellariumDashboard({
   allOpportunities = [],
   pipelines = [],
   tasks = [],
-  allTasks = [],
   unfilteredOpportunities = [],
   conversationActivity,
   activityStatus = "loading",
@@ -128,16 +128,15 @@ export function CellariumDashboard({
         locationId={locationId}
       />
 
-      <SectionHeader title="Embudo" />
-      <FunnelChart {...shared} />
-      <OpportunityStatusChart {...shared} />
-      <LostReasonMatrix {...shared} />
-      <AdvisorStageTable {...shared} />
-      <AssignmentFunnelChart {...shared} />
-
       <SectionHeader title="Campañas" />
       <CampaignBreakdownChart {...shared} />
       <CampaignMonthChart {...shared} />
+
+      <SectionHeader title="Embudo" />
+      <FunnelChart {...shared} />
+      <OpportunityStatusChart {...shared} />
+      <AdvisorStageTable {...shared} />
+      <AssignmentFunnelChart {...shared} />
 
       <SectionHeader title="Sin atención" />
       <StaleOpportunityMatrix
@@ -147,11 +146,9 @@ export function CellariumDashboard({
         activityProgress={activityProgress}
         onRetryActivity={onRetryActivity}
       />
-      <TaskBacklogChart
-        {...shared}
-        allTasks={allTasks}
-        unfilteredOpportunities={unfilteredOpportunities}
-      />
+
+      <SectionHeader title="Perdidas" />
+      <LostReasonMatrix {...shared} />
     </DashboardShell>
   )
 }
