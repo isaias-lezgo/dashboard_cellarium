@@ -7,6 +7,7 @@
 import type { Opportunity, Pipeline } from "./types"
 import { statusBucket, STATUS_BUCKETS, type StatusBucket } from "./opportunity-breakdown"
 import { resolvePipelineId, type PanelId } from "./panel-scope"
+import { WON_STAGE_PATTERN } from "./opportunity-status"
 
 /**
  * Fila de las oportunidades que nadie tiene asignadas. NO se descarta: en el
@@ -26,10 +27,13 @@ export type StageKind = "ganado" | "perdido" | "abierto"
  * isWonOpp(): un embudo recreado conserva el nombre pero no el id.
  */
 export function stageKind(stage: string): StageKind {
-  if (/ganad[oa]|\bwon\b/i.test(stage)) return "ganado"
-  if (/perdid[oa]|\blost\b/i.test(stage)) return "perdido"
+  if (WON_STAGE_PATTERN.test(stage)) return "ganado"
+  if (/perdid[oa]s?|\blost\b/i.test(stage)) return "perdido"
   return "abierto"
 }
+
+/** Columna única para las oportunidades que viven en "Leads Perdidos". */
+export const LOST_STAGE_LABEL = "Perdidas"
 
 export interface AdvisorCell {
   count: number
@@ -109,16 +113,21 @@ export function panelStageOrder(
  * - Una etapa que traiga una oportunidad pero que el embudo ya no declare se
  *   agrega como columna extra al final, en vez de perder el registro.
  * - Las filas se ordenan por volumen descendente; "Sin asesor" siempre al final.
+ * - Con `stageOf` el caller decide bajo qué etapa cuenta cada oportunidad; el
+ *   panel de Cellarium manda todas las de "Leads Perdidos" a una sola columna
+ *   "Perdidas" en vez de una por motivo.
  */
 export function buildAdvisorMatrix(
   opps: Opportunity[],
-  stageOrder: string[]
+  stageOrder: string[],
+  /** Etapa bajo la que se cuenta una oportunidad. Default: la suya. */
+  stageOf: (opp: Opportunity) => string = (o) => o.stage ?? ""
 ): AdvisorMatrix {
   // Etapas del embudo, más las que aparezcan en los datos y no estén declaradas.
   const stages = [...stageOrder]
   const stageByKey = new Map(stageOrder.map((s) => [stageKey(s), s]))
   for (const o of opps) {
-    const raw = (o.stage ?? "").trim()
+    const raw = stageOf(o).trim()
     const key = stageKey(raw || OTHER_STAGE_LABEL)
     if (stageByKey.has(key)) continue
     const label = raw || OTHER_STAGE_LABEL
@@ -136,7 +145,7 @@ export function buildAdvisorMatrix(
       byAdvisor.set(name, row)
     }
 
-    const stage = stageByKey.get(stageKey((o.stage ?? "").trim() || OTHER_STAGE_LABEL))!
+    const stage = stageByKey.get(stageKey(stageOf(o).trim() || OTHER_STAGE_LABEL))!
     const cell = row.stages[stage]
     cell.count += 1
     cell.oppIds.push(o.id)

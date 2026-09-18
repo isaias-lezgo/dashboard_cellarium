@@ -17,8 +17,10 @@ import {
   STATUS_LABELS,
   type StatusBucket,
 } from "@/lib/opportunity-breakdown"
+import { isInLostPipeline } from "@/lib/cellarium-rules"
 import {
   buildAdvisorMatrix,
+  LOST_STAGE_LABEL,
   panelStageOrder,
   stageKind,
   type AdvisorCell,
@@ -162,7 +164,11 @@ export function AdvisorStageTable({
 
   const matrix = useMemo(() => {
     const scoped = scopeOpportunities(opportunities, panel, pipelines)
-    return buildAdvisorMatrix(scoped, panelStageOrder(pipelines, panel))
+    // Las de Leads Perdidos van juntas en una columna: una por motivo sería
+    // diez columnas que no son etapas del embudo.
+    return buildAdvisorMatrix(scoped, panelStageOrder(pipelines, panel), (o) =>
+      isInLostPipeline(o) ? LOST_STAGE_LABEL : o.stage ?? ""
+    )
   }, [opportunities, panel, pipelines])
 
   const oppById = useMemo(
@@ -199,15 +205,14 @@ export function AdvisorStageTable({
             label="Asesor × etapa"
             tooltip={
               <>
-                Oportunidades del embudo <strong>{scope.label}</strong> creadas en el periodo,
-                repartidas por el asesor asignado y por la etapa en la que están{" "}
-                <em>hoy</em>. El sombreado compara <strong>dentro de cada columna</strong>,
-                nunca entre columnas. La barra de estatus sigue la regla del panel:{" "}
-                <strong>ganada</strong> incluye las que se registran moviéndolas a una etapa
-                &ldquo;Ganado&rdquo; sin cambiar su estatus y <strong>perdida</strong> junta
-                perdidas y abandonadas, así que puede no cuadrar con las columnas Ganado /
-                Perdido cuando etapa y estatus se contradicen. Solo se listan los asesores con
-                al menos una oportunidad en este embudo.
+                Oportunidades de <strong>{scope.label}</strong> creadas en el periodo,
+                repartidas por el asesor asignado y por la etapa del embudo Ventas en la que
+                están <em>hoy</em>. Las que viven en <strong>Leads Perdidos</strong> van juntas
+                en la columna <strong>Perdidas</strong>. El sombreado compara{" "}
+                <strong>dentro de cada columna</strong>, nunca entre columnas. La barra de
+                estatus sigue la regla del panel: <strong>ganada</strong> es status won o etapa
+                Cierre, <strong>perdida</strong> junta Leads Perdidos, perdidas y abandonadas.
+                Solo se listan los asesores con al menos una oportunidad.
               </>
             }
           />

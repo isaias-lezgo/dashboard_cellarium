@@ -10,8 +10,10 @@
 // Envuelto en main() en vez de top-level await: este paquete es CJS.
 import assert from "node:assert/strict";
 import type { Opportunity, Pipeline } from "../lib/types";
+import { isInLostPipeline } from "../lib/cellarium-rules";
 import {
   buildAdvisorMatrix,
+  LOST_STAGE_LABEL,
   NO_ADVISOR_LABEL,
   OTHER_STAGE_LABEL,
   panelStageOrder,
@@ -246,6 +248,23 @@ function main() {
     assert.equal(m.totals.total, 0);
     assert.equal(m.totals.winRate, 0);
     assert.deepEqual(m.stages, STAGES, "las columnas del embudo se dibujan aunque no haya datos");
+  }
+
+  // 11. Cellarium: las perdidas del pipeline "Leads Perdidos" van a UNA columna
+  //     ("Perdidas") en vez de una por motivo, y "Cierre" es etapa ganada.
+  {
+    assert.equal(stageKind("Cierre"), "ganado");
+    assert.equal(stageKind(LOST_STAGE_LABEL), "perdido");
+    const lost1 = { ...opp({ advisor: "Carla", stage: "Equivocado" }), pipelineName: "Leads Perdidos" };
+    const lost2 = { ...opp({ advisor: "Carla", stage: "Datos Erróneos" }), pipelineName: "Leads Perdidos" };
+    const live = opp({ advisor: "Carla", stage: "Contactado" });
+    const stageOf = (o: Opportunity) => (isInLostPipeline(o) ? LOST_STAGE_LABEL : o.stage ?? "");
+    const m = buildAdvisorMatrix([lost1, lost2, live], ["Lead Generado", "Contactado"], stageOf);
+    assert.deepEqual(m.stages, ["Lead Generado", "Contactado", LOST_STAGE_LABEL]);
+    const carla = m.rows.find((r) => r.advisor === "Carla")!;
+    assert.equal(carla.stages[LOST_STAGE_LABEL].count, 2);
+    assert.equal(carla.stages["Contactado"].count, 1);
+    assert.equal(carla.status.perdida.count, 2);
   }
 
   console.log("verify-advisors: all assertions passed");
