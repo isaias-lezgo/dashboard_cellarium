@@ -23,6 +23,16 @@ export function NonZeroTooltipContent(props: NonZeroTooltipProps) {
 /** Amber Ledger tokens — see DESIGN.md */
 export const BRAND_AMBER = "#F59B1B"
 export const STRUCTURAL_NAVY = "#335577"
+/**
+ * Colores semánticos de las tres cubetas de estatus. Verde y rojo ya significan
+ * algo antes de leer la leyenda; "abierta" va en el navy estructural. Los usan
+ * el apilado por estado, el de leads sin asesor, el de campañas y el embudo.
+ */
+export const STATUS_COLORS = {
+  ganada: "#10b981",
+  abierta: STRUCTURAL_NAVY,
+  perdida: "#ef4444",
+} as const
 export const CHART_GRID_STROKE = "hsl(var(--border))"
 
 export const CHART_TICK = {

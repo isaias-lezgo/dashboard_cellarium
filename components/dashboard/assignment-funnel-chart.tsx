@@ -33,7 +33,7 @@ import {
   MISSING_TEXT,
   MissingAwareTick,
   NonZeroTooltipContent,
-  STRUCTURAL_NAVY,
+  STATUS_COLORS,
   ScopePill,
 } from "./dashboard-ui"
 import { ChartDrillDrawer, DRILL_CLOSED, type DrillState } from "./chart-drill-drawer"
@@ -48,9 +48,9 @@ import { ChartDrillDrawer, DRILL_CLOSED, type DrillState } from "./chart-drill-d
  * son las sin asesor, así que un segmento con ese nombre sería la barra completa.
  */
 const config: ChartConfig = {
-  perdida: { label: STATUS_LABELS.perdida, color: "#ef4444" },
-  abierta: { label: STATUS_LABELS.abierta, color: STRUCTURAL_NAVY },
-  ganada: { label: STATUS_LABELS.ganada, color: "#10b981" },
+  perdida: { label: STATUS_LABELS.perdida, color: STATUS_COLORS.perdida },
+  abierta: { label: STATUS_LABELS.abierta, color: STATUS_COLORS.abierta },
+  ganada: { label: STATUS_LABELS.ganada, color: STATUS_COLORS.ganada },
 }
 
 /** Orden del apilado, de abajo hacia arriba. */

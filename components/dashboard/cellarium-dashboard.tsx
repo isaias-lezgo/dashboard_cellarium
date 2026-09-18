@@ -16,6 +16,7 @@ import type {
   ActivityStatus,
 } from "@/hooks/use-conversation-activity"
 import { DashboardShell, SectionHeader } from "./dashboard-ui"
+import { FunnelChart } from "./funnel-chart"
 import { OpportunityStatusChart } from "./opportunity-status-chart"
 import { AdvisorStageTable } from "./advisor-stage-table"
 import { AssignmentFunnelChart } from "./assignment-funnel-chart"
@@ -126,7 +127,7 @@ export function CellariumDashboard({
       />
 
       <SectionHeader title="Embudo" />
-      {/* Task 8: <FunnelChart {...shared} /> va aquí. */}
+      <FunnelChart {...shared} />
       <OpportunityStatusChart {...shared} />
       <LostReasonMatrix {...shared} />
       <AdvisorStageTable {...shared} />

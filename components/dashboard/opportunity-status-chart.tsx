@@ -30,23 +30,15 @@ import {
   DashboardCard,
   MissingAwareTick,
   NonZeroTooltipContent,
-  STRUCTURAL_NAVY,
+  STATUS_COLORS,
   ScopePill,
 } from "./dashboard-ui"
 import { ChartDrillDrawer, DRILL_CLOSED, type DrillState } from "./chart-drill-drawer"
 
-// Colores semánticos, no de marca: en un apilado de ganada/abierta/perdida el
-// verde y el rojo ya significan algo antes de leer la leyenda.
-const BUCKET_COLORS: Record<StatusBucket, string> = {
-  ganada: "#10b981",
-  abierta: STRUCTURAL_NAVY,
-  perdida: "#ef4444",
-}
-
 const chartConfig = {
-  ganada: { label: STATUS_LABELS.ganada, color: BUCKET_COLORS.ganada },
-  abierta: { label: STATUS_LABELS.abierta, color: BUCKET_COLORS.abierta },
-  perdida: { label: STATUS_LABELS.perdida, color: BUCKET_COLORS.perdida },
+  ganada: { label: STATUS_LABELS.ganada, color: STATUS_COLORS.ganada },
+  abierta: { label: STATUS_LABELS.abierta, color: STATUS_COLORS.abierta },
+  perdida: { label: STATUS_LABELS.perdida, color: STATUS_COLORS.perdida },
 }
 
 export interface OpportunityStatusChartProps {
@@ -141,7 +133,7 @@ export function OpportunityStatusChart({
                 <span key={bucket} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                    style={{ backgroundColor: BUCKET_COLORS[bucket] }}
+                    style={{ backgroundColor: STATUS_COLORS[bucket] }}
                     aria-hidden
                   />
                   {STATUS_LABELS[bucket]}
@@ -174,7 +166,7 @@ export function OpportunityStatusChart({
                     key={bucket}
                     dataKey={bucket}
                     stackId="estado"
-                    fill={BUCKET_COLORS[bucket]}
+                    fill={STATUS_COLORS[bucket]}
                     // Solo la serie de hasta arriba lleva esquinas redondeadas,
                     // o el apilado se ve partido en tres bloques sueltos.
                     radius={i === STATUS_BUCKETS.length - 1 ? [3, 3, 0, 0] : undefined}
