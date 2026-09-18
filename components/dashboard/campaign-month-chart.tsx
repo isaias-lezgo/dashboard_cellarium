@@ -179,9 +179,11 @@ export function CampaignMonthChart({
               <>
                 Oportunidades por el mes en que se crearon, apiladas por la{" "}
                 <strong>campaña</strong> de Meta que las trajo. Las cinco campañas mayores
-                llevan nombre propio; el resto se pliega en <strong>Otros</strong>. Los
-                colores se fijan sobre todo el historial para que el filtro de fechas no los
-                cambie. Clic en un nombre de la leyenda lo aísla.
+                llevan nombre propio; el resto se pliega en <strong>Otros</strong>.{" "}
+                <strong>Sin campaña</strong> son los leads sin UTM: mensajes directos de
+                Facebook, Instagram y WhatsApp, importaciones y captura manual. Los colores
+                se fijan sobre todo el historial para que el filtro de fechas no los cambie.
+                Clic en un nombre de la leyenda lo aísla.
               </>
             }
           />

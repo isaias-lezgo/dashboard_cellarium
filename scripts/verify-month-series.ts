@@ -61,12 +61,17 @@ function main() {
     assert.equal(otros.total, 2 + 1);
   }
 
-  // 2b. Exactamente maxNamed+1 NO se pliega: "Otros (1)" no dice nada.
+  // 2b. maxNamed+1 SÍ se pliega aunque "Otros" quede con uno: la paleta tiene
+  //     exactamente maxNamed tonos y una sexta serie no tendría color.
   {
     const opps = ["A", "B", "C", "D", "E", "F"].map((d) => opp({ dim: d }));
     const data = buildMonthSeries(opps, { dimensionOf, emptyLabel: EMPTY, maxNamed: 5 });
     assert.equal(data.series.length, 6);
-    assert.ok(data.series.every((s) => s.kind === "named"));
+    assert.equal(data.series.at(-1)!.kind, "otros");
+    assert.equal(data.series.at(-1)!.foldedCount, 1);
+    // Y exactamente maxNamed no se pliega.
+    const five = buildMonthSeries(opps.slice(0, 5), { dimensionOf, emptyLabel: EMPTY, maxNamed: 5 });
+    assert.ok(five.series.every((s) => s.kind === "named"));
   }
 
   // 3. namedKeys manda: lo que no esté en la lista cae en "Otros" aunque pese.

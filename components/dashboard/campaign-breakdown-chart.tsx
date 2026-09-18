@@ -103,8 +103,9 @@ export function CampaignBreakdownChart({
                 Oportunidades del periodo agrupadas por la <strong>campaña</strong> de Meta
                 que las trajo (la primera atribución de la oportunidad), partidas en ganadas,
                 abiertas y perdidas con la misma regla que &ldquo;Oportunidades por
-                estado&rdquo;. <strong>Sin campaña</strong> junta los leads sin UTM: correo,
-                importaciones y captura manual.
+                estado&rdquo;. <strong>Sin campaña</strong> junta los leads que llegaron sin UTM de
+                campaña —mensajes directos de Facebook, Instagram y WhatsApp sin anuncio
+                rastreable, importaciones y captura manual— y son ~4 de cada 10.
               </>
             }
           />

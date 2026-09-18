@@ -109,15 +109,16 @@ export function buildMonthSeries(
       return diff !== 0 ? diff : a.localeCompare(b, "es")
     })
 
-  // Con namedKeys manda la lista de afuera. Sin ella se pliega la cola, y solo
-  // si sobra MÁS de una: "Otros (1)" no dice nada que el nombre real no diga mejor.
+  // Con namedKeys manda la lista de afuera. Sin ella se pliega TODO lo que pase
+  // de maxNamed, aunque "Otros" quede con un solo valor: la paleta tiene
+  // exactamente maxNamed tonos y una sexta serie con nombre no tendría color.
   let keptNames: string[]
   let foldedNames: string[]
   if (opts.namedKeys) {
     const allowed = new Set(opts.namedKeys)
     keptNames = named.filter((k) => allowed.has(k))
     foldedNames = named.filter((k) => !allowed.has(k))
-  } else if (named.length > maxNamed + 1) {
+  } else if (named.length > maxNamed) {
     keptNames = named.slice(0, maxNamed)
     foldedNames = named.slice(maxNamed)
   } else {

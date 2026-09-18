@@ -72,8 +72,10 @@ export function lostReasonOf(opp: Opportunity): string {
 
 /**
  * La campaña de Meta que trajo el lead: `campaignName` es el `utmCampaign` de la
- * PRIMERA atribución (ver firstAttr en lib/sync.ts). Sin UTM —correo, csv,
- * captura manual— cae en la centinela.
+ * PRIMERA atribución (ver firstAttr en lib/sync.ts; medido 2026-09-18: solo 3
+ * de 1 865 la traen en una atribución posterior y no en la primera). Sin UTM
+ * cae en la centinela — y son ~39 %: mensajes directos de Facebook / Instagram
+ * / WhatsApp sin anuncio rastreable, importaciones csv y captura manual.
  */
 export function campaignOf(opp: Opportunity): string {
   return (opp.campaignName ?? "").trim() || NO_CAMPAIGN_LABEL
