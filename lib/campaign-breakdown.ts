@@ -6,13 +6,13 @@
 //
 // Puro y sin React para que scripts/verify-campaign.ts lo asevere.
 import type { Opportunity } from "./types"
-import { campaignOf, NO_CAMPAIGN_LABEL } from "./cellarium-rules"
+import { campaignOf, isNoCampaign, NO_CAMPAIGN_ORDER } from "./cellarium-rules"
 import { statusBucket, type StatusBucket } from "./opportunity-breakdown"
 
 export interface CampaignRow {
   key: string
   label: string
-  /** true en la fila "Sin campaña", que va al final y con la etiqueta en rojizo. */
+  /** true en las filas "Sin campaña · …", que van al final y con la etiqueta en rojizo. */
   missing: boolean
   total: number
   ganada: number
@@ -25,7 +25,7 @@ function emptyRow(label: string): CampaignRow {
   return {
     key: label,
     label,
-    missing: label === NO_CAMPAIGN_LABEL,
+    missing: isNoCampaign(label),
     total: 0,
     ganada: 0,
     abierta: 0,
@@ -34,7 +34,10 @@ function emptyRow(label: string): CampaignRow {
   }
 }
 
-/** Filas por volumen desc (empate alfabético); "Sin campaña" siempre al final. */
+/**
+ * Filas por volumen desc (empate alfabético); las cubetas "Sin campaña · …"
+ * siempre al final, en su orden fijo y no por volumen.
+ */
 export function buildCampaignBreakdown(opps: Opportunity[]): CampaignRow[] {
   const rows = new Map<string, CampaignRow>()
   for (const o of opps) {
@@ -51,6 +54,7 @@ export function buildCampaignBreakdown(opps: Opportunity[]): CampaignRow[] {
   }
   return [...rows.values()].sort((a, b) => {
     if (a.missing !== b.missing) return a.missing ? 1 : -1
+    if (a.missing) return NO_CAMPAIGN_ORDER.indexOf(a.label) - NO_CAMPAIGN_ORDER.indexOf(b.label)
     return b.total - a.total || a.label.localeCompare(b.label, "es")
   })
 }

@@ -171,11 +171,22 @@ nothing re-inlines it (`pnpm verify:cellarium` asserts every rule):
   `lostReason` for the ~40 marked lost inside Ventas; else `"Sin motivo"`.
 - **Campaign** = `campaignOf()`: `opp.campaignName` (= Meta `utmCampaign` of the FIRST
   attribution — `firstAttr()` in `lib/sync.ts`; only 3 of 1 865 have it in a later
-  attribution and not the first); else `"Sin campaña"`. **~39 % have no campaign** and that
-  is real: Meta leads without UTM (whatsapp_coex 192, facebook 189, whatsapp 119,
-  instagram 100 by first medium) plus csv imports and manual capture. The `Pautas`
-  custom object exists but has **0 records** and the contact's `ID/Nombre/URL Pauta`
-  fields are empty — the Make flow never ran here; attribution is the only campaign source.
+  attribution and not the first), falling back to the contact's
+  `attributionSource.campaign` (the contact search never returns `attributions[]`; the
+  key there is `campaign`, not `utmCampaign` — the sync reads it, +6 opps). **~39 % have
+  no campaign anywhere** (not on the opp, not on the contact, not in tags or the ad
+  fields), and instead of one gray blob they land in **four sentinel buckets by how they
+  arrived** (`NO_CAMPAIGN_BUCKETS`, order = presentation order): `Sin campaña · Meta
+  pagado` (`sessionSource: "Paid Social"` — paid ads Meta stopped passing `utm_campaign`
+  for; **since Aug 2026 that is 100 % of incoming leads**, the fix is in the Meta ads /
+  lead-form setup, not the CRM), `· Meta orgánico / mensaje directo` (`"Social media"`),
+  `· importación / captura manual` (`"CRM UI"` or medium csv_import/manual), `· otro
+  origen`. All start with `NO_CAMPAIGN_LABEL` so `isMissingLabel()` tints them and
+  `isNoCampaign()` recognizes them; `month-series` takes `emptyLabels[]` and stacks them
+  last in that order, and `campaign-month-chart` paints them on a gray ramp (darkest =
+  paid, the one that matters). `opp.sessionSource` is the raw `utmSessionSource`, kept by
+  the sync for this. The `Pautas` custom object exists but has **0 records** and the
+  contact's `ID/Nombre/URL Pauta` fields are empty — the Make flow never ran here.
 - `statusBucket()` in `opportunity-breakdown.ts` applies lost-then-won and every chart
   goes through it, so all cards agree on 1 091 lost / 4 won / 770 open.
 

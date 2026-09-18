@@ -55,6 +55,8 @@ export interface Contact {
   adId?: string
   attributionUrl?: string
   attributionMedium?: string
+  /** computed: raw `utmSessionSource` ("Paid Social" | "Social media" | "CRM UI" | …) — the paid/organic/imported split */
+  sessionSource?: string
 }
 
 export interface Opportunity {
@@ -113,6 +115,7 @@ export interface Opportunity {
   adId?: string
   attributionUrl?: string
   attributionMedium?: string  // computed: GHL-internal medium (whatsapp, instagram, calendar, manual, …) or utmSessionSource fallback
+  sessionSource?: string      // computed: raw utmSessionSource ("Paid Social" | "Social media" | "CRM UI" | …); falls back to the contact's
   originPlatform?: string     // computed: linked contact's "Origen de Lead" custom field (Instagram/Facebook/TikTok/…); fallback signal for platformLabel
 }
 

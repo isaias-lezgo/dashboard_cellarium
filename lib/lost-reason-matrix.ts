@@ -4,7 +4,7 @@
 // cruce mal armado da una respuesta silenciosamente equivocada —una celda que
 // suma en la columna que no era se ve idéntica a una correcta.
 import type { Opportunity } from "./types"
-import { campaignOf, lostReasonOf, NO_CAMPAIGN_LABEL, NO_REASON_LABEL } from "./cellarium-rules"
+import { campaignOf, isNoCampaign, lostReasonOf, NO_CAMPAIGN_ORDER, NO_REASON_LABEL } from "./cellarium-rules"
 import { categoryKey, mostFrequent, statusBucket } from "./opportunity-breakdown"
 
 /** Fila sin motivo capturado. Siempre va al final, aunque sea grande. */
@@ -70,7 +70,8 @@ export function buildLostReasonMatrix(opps: Opportunity[]): LostReasonMatrix {
   const lost = opps.filter((o) => statusBucket(o) === "perdida")
   if (lost.length === 0) return EMPTY
 
-  // Columnas: campañas por volumen desc, "Sin campaña" al final.
+  // Columnas: campañas por volumen desc, las cubetas "Sin campaña · …" al final
+  // en su orden fijo.
   const colCounts = new Map<string, number>()
   const colIdsByLabel = new Map<string, string[]>()
   for (const o of lost) {
@@ -81,13 +82,13 @@ export function buildLostReasonMatrix(opps: Opportunity[]): LostReasonMatrix {
     colIdsByLabel.set(c, ids)
   }
   const colLabels = [...colCounts.keys()]
-    .filter((k) => k !== NO_CAMPAIGN_LABEL)
+    .filter((k) => !isNoCampaign(k))
     .sort((a, b) => colCounts.get(b)! - colCounts.get(a)! || a.localeCompare(b, "es"))
-  if (colCounts.has(NO_CAMPAIGN_LABEL)) colLabels.push(NO_CAMPAIGN_LABEL)
+  colLabels.push(...NO_CAMPAIGN_ORDER.filter((k) => colCounts.has(k)))
   const columns: LostMatrixColumn[] = colLabels.map((label) => ({
     label,
     total: colCounts.get(label)!,
-    missing: label === NO_CAMPAIGN_LABEL,
+    missing: isNoCampaign(label),
   }))
   const colIndex = new Map(colLabels.map((l, i) => [l, i]))
   const colByOpp = new Map(lost.map((o) => [o.id, colIndex.get(campaignOf(o))!]))

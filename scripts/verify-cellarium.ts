@@ -12,6 +12,8 @@ import type { Opportunity } from "../lib/types";
 import {
   campaignOf,
   isInLostPipeline,
+  isNoCampaign,
+  NO_CAMPAIGN_BUCKETS,
   isLiveOpp,
   isLostOpp,
   LOST_PIPELINE,
@@ -32,6 +34,8 @@ function opp(o: {
   stage?: string;
   lostReason?: string;
   campaignName?: string;
+  sessionSource?: string;
+  attributionMedium?: string;
 }): Opportunity {
   const inLost = o.pipeline === "perdidos";
   return {
@@ -47,6 +51,8 @@ function opp(o: {
     pipelineName: o.pipelineName ?? (inLost ? LOST_PIPELINE.label : VENTAS_PIPELINE.label),
     lostReason: o.lostReason,
     campaignName: o.campaignName,
+    sessionSource: o.sessionSource,
+    attributionMedium: o.attributionMedium,
   };
 }
 
@@ -110,11 +116,31 @@ function main() {
     assert.equal(lostReasonOf(opp({ status: "abandoned", lostReason: "" })), NO_REASON_LABEL);
   }
 
-  // 7. Campaña: utmCampaign tal cual, o la cubeta centinela.
+  // 7. Campaña: utmCampaign tal cual; sin él, UNA de cuatro cubetas centinela
+  //    según cómo llegó el lead. Todas empiezan con "Sin campaña" para que
+  //    isMissingLabel() las tiña y isNoCampaign() las reconozca.
   {
     assert.equal(campaignOf(opp({ campaignName: "Cellarium Formulario Junio 25 V1" })), "Cellarium Formulario Junio 25 V1");
-    assert.equal(campaignOf(opp({ campaignName: "  " })), NO_CAMPAIGN_LABEL);
-    assert.equal(campaignOf(opp({})), NO_CAMPAIGN_LABEL);
+    assert.ok(!isNoCampaign("Cellarium Formulario Junio 25 V1"));
+    // Pauta pagada que perdió el utm_campaign: la cubeta que le importa a la agencia.
+    assert.equal(campaignOf(opp({ sessionSource: "Paid Social", attributionMedium: "facebook" })), NO_CAMPAIGN_BUCKETS.paid);
+    assert.equal(campaignOf(opp({ sessionSource: "paid social", attributionMedium: "whatsapp" })), NO_CAMPAIGN_BUCKETS.paid, "sin mayúsculas");
+    // Orgánico / mensaje directo.
+    assert.equal(campaignOf(opp({ sessionSource: "Social media", attributionMedium: "whatsapp_coex" })), NO_CAMPAIGN_BUCKETS.organic);
+    assert.equal(campaignOf(opp({ sessionSource: "Social media", attributionMedium: "instagram" })), NO_CAMPAIGN_BUCKETS.organic);
+    // Importación / captura manual: por sesión "CRM UI" o por medio.
+    assert.equal(campaignOf(opp({ sessionSource: "CRM UI", attributionMedium: "csv_import" })), NO_CAMPAIGN_BUCKETS.imported);
+    assert.equal(campaignOf(opp({ attributionMedium: "manual" })), NO_CAMPAIGN_BUCKETS.imported);
+    // Todo lo demás (correo, formulario web, sin dato).
+    assert.equal(campaignOf(opp({ sessionSource: "Other" })), NO_CAMPAIGN_BUCKETS.other);
+    assert.equal(campaignOf(opp({ campaignName: "  " })), NO_CAMPAIGN_BUCKETS.other);
+    assert.equal(campaignOf(opp({})), NO_CAMPAIGN_BUCKETS.other);
+    for (const label of Object.values(NO_CAMPAIGN_BUCKETS)) {
+      assert.ok(isNoCampaign(label), label);
+      assert.ok(label.startsWith(NO_CAMPAIGN_LABEL), `${label} empieza con la centinela`);
+    }
+    // El orden de la lista es el de presentación: pagado primero, otro al final.
+    assert.deepEqual(Object.keys(NO_CAMPAIGN_BUCKETS), ["paid", "organic", "imported", "other"]);
   }
 
   console.log("✅ lib/cellarium-rules.ts — all assertions passed");

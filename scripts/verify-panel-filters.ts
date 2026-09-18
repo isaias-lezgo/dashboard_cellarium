@@ -5,7 +5,7 @@
 // Envuelto en main() en vez de top-level await: este paquete es CJS.
 import assert from "node:assert/strict";
 import type { Opportunity } from "../lib/types";
-import { NO_CAMPAIGN_LABEL } from "../lib/cellarium-rules";
+import { NO_CAMPAIGN_BUCKETS } from "../lib/cellarium-rules";
 import {
   activeFilterCount,
   ADVISORS,
@@ -47,17 +47,21 @@ function main() {
     assert.equal(advisorKeyOf(opp({})), undefined);
   }
 
-  // 2. Opciones de campaña: por volumen desc, "Sin campaña" al final y en gris.
+  // 2. Opciones de campaña: por volumen desc, las cubetas "Sin campaña · …" al
+  //    final en su orden fijo (pagado antes que otro, aunque pese menos) y en gris.
   {
     const opts = campaignOptions([
       opp({ campaignName: "B" }),
       opp({ campaignName: "A" }),
       opp({ campaignName: "A" }),
       opp({}),
+      opp({}),
+      { ...opp({}), sessionSource: "Paid Social" },
     ]);
-    assert.deepEqual(opts.map((o) => o.value), ["A", "B", NO_CAMPAIGN_LABEL]);
+    assert.deepEqual(opts.map((o) => o.value), ["A", "B", NO_CAMPAIGN_BUCKETS.paid, NO_CAMPAIGN_BUCKETS.other]);
     assert.equal(opts[0].count, 2);
     assert.equal(opts[2].muted, true);
+    assert.equal(opts[3].count, 2);
     assert.deepEqual(campaignOptions([]), []);
     assert.deepEqual(
       campaignOptions([opp({ campaignName: "A" })]).map((o) => o.muted ?? false),
@@ -81,7 +85,7 @@ function main() {
     const opps = [a, b, c];
     assert.deepEqual(applyPanelFilters(opps, { asesores: ["carla"], campanas: [] }), [a, c]);
     assert.deepEqual(applyPanelFilters(opps, { asesores: ["carla", "roberto"], campanas: ["X"] }), [a, b]);
-    assert.deepEqual(applyPanelFilters(opps, { asesores: [], campanas: [NO_CAMPAIGN_LABEL] }), [c]);
+    assert.deepEqual(applyPanelFilters(opps, { asesores: [], campanas: [NO_CAMPAIGN_BUCKETS.other] }), [c]);
     assert.deepEqual(applyPanelFilters(opps, { asesores: ["maria"], campanas: [] }), []);
     assert.equal(activeFilterCount({ asesores: ["carla", "roberto"], campanas: ["X"] }), 3);
   }

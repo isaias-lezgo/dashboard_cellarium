@@ -25,8 +25,9 @@ function opp(o: { dim?: string; createdAt?: string; value?: number }): Opportuni
     campaignName: o.dim,
   };
 }
-const EMPTY = "Sin campaña";
-const dimensionOf = (o: Opportunity) => (o.campaignName ?? "").trim() || EMPTY;
+const EMPTY = "Sin campaña · otro";
+const EMPTY_PAID = "Sin campaña · pagado";
+const dimensionOf = (o: Opportunity) => (o.campaignName ?? "").trim() || (o.sessionSource === "Paid Social" ? EMPTY_PAID : EMPTY);
 
 function main() {
   // 1. Conteo por mes de creación (default), series por total desc, vacía al final.
@@ -38,7 +39,7 @@ function main() {
         opp({ dim: "B", createdAt: "2026-06-11T12:00:00Z" }),
         opp({ createdAt: "2026-06-12T12:00:00Z" }),
       ],
-      { dimensionOf, emptyLabel: EMPTY }
+      { dimensionOf, emptyLabels: [EMPTY_PAID, EMPTY] }
     );
     assert.deepEqual(data.series.map((s) => s.key), ["B", "A", EMPTY]);
     assert.deepEqual(data.series.map((s) => s.kind), ["named", "named", "empty"]);
@@ -53,7 +54,7 @@ function main() {
     const opps = ["A", "B", "C", "D", "E", "F", "G"].flatMap((d, i) =>
       Array.from({ length: 7 - i }, () => opp({ dim: d }))
     );
-    const data = buildMonthSeries(opps, { dimensionOf, emptyLabel: EMPTY, maxNamed: 5 });
+    const data = buildMonthSeries(opps, { dimensionOf, emptyLabels: [EMPTY_PAID, EMPTY], maxNamed: 5 });
     assert.deepEqual(data.series.map((s) => s.key), ["A", "B", "C", "D", "E", OTROS_KEY]);
     const otros = data.series.at(-1)!;
     assert.equal(otros.kind, "otros");
@@ -65,12 +66,12 @@ function main() {
   //     exactamente maxNamed tonos y una sexta serie no tendría color.
   {
     const opps = ["A", "B", "C", "D", "E", "F"].map((d) => opp({ dim: d }));
-    const data = buildMonthSeries(opps, { dimensionOf, emptyLabel: EMPTY, maxNamed: 5 });
+    const data = buildMonthSeries(opps, { dimensionOf, emptyLabels: [EMPTY_PAID, EMPTY], maxNamed: 5 });
     assert.equal(data.series.length, 6);
     assert.equal(data.series.at(-1)!.kind, "otros");
     assert.equal(data.series.at(-1)!.foldedCount, 1);
     // Y exactamente maxNamed no se pliega.
-    const five = buildMonthSeries(opps.slice(0, 5), { dimensionOf, emptyLabel: EMPTY, maxNamed: 5 });
+    const five = buildMonthSeries(opps.slice(0, 5), { dimensionOf, emptyLabels: [EMPTY_PAID, EMPTY], maxNamed: 5 });
     assert.ok(five.series.every((s) => s.kind === "named"));
   }
 
@@ -78,7 +79,7 @@ function main() {
   {
     const data = buildMonthSeries(
       [opp({ dim: "A" }), opp({ dim: "Z" }), opp({ dim: "Z" })],
-      { dimensionOf, emptyLabel: EMPTY, namedKeys: ["A"] }
+      { dimensionOf, emptyLabels: [EMPTY_PAID, EMPTY], namedKeys: ["A"] }
     );
     assert.deepEqual(data.series.map((s) => s.key), ["A", OTROS_KEY]);
   }
@@ -93,7 +94,7 @@ function main() {
       ],
       {
         dimensionOf,
-        emptyLabel: EMPTY,
+        emptyLabels: [EMPTY_PAID, EMPTY],
         include: (o) => o.campaignName !== "B",
         measure: "value",
       }
@@ -103,9 +104,19 @@ function main() {
     assert.equal(data.buckets[1].kind, "no-date");
   }
 
+  // 4b. Varias cubetas vacías: al final, en el orden dado y no por volumen.
+  {
+    const data = buildMonthSeries(
+      [opp({ dim: "A" }), opp({}), opp({}), { ...opp({}), sessionSource: "Paid Social" }],
+      { dimensionOf, emptyLabels: [EMPTY_PAID, EMPTY] }
+    );
+    assert.deepEqual(data.series.map((s) => s.key), ["A", EMPTY_PAID, EMPTY]);
+    assert.deepEqual(data.series.map((s) => s.kind), ["named", "empty", "empty"]);
+  }
+
   // 5. Vacío.
   {
-    const data = buildMonthSeries([], { dimensionOf, emptyLabel: EMPTY });
+    const data = buildMonthSeries([], { dimensionOf, emptyLabels: [EMPTY_PAID, EMPTY] });
     assert.deepEqual(data, { series: [], buckets: [], grandTotal: 0 });
   }
 

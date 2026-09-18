@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, XAxis, YAxis } from "recharts"
 import { CalendarRange } from "lucide-react"
 import type { Appointment, Call, Contact, Message, Opportunity, Pauta, Pipeline, Task } from "@/lib/types"
-import { campaignOf, NO_CAMPAIGN_LABEL } from "@/lib/cellarium-rules"
+import { campaignOf, NO_CAMPAIGN_ORDER } from "@/lib/cellarium-rules"
 import { buildMonthSeries, type SeriesEntry } from "@/lib/month-series"
 import { PANEL_SCOPES, scopeOpportunities, type PanelId } from "@/lib/panel-scope"
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart"
@@ -31,15 +31,30 @@ const TOTAL_ANCHOR = "__total"
 // declara number; el cast es el mismo que usaba lost-by-dimension-chart.
 const TOP_RADIUS = [3, 3, 0, 0] as unknown as number
 
+/**
+ * Rampa de grises para las cuatro cubetas "Sin campaña · …", de más oscuro
+ * (pauta pagada que perdió el UTM — la que importa) a más claro (otro origen).
+ * Es una rampa SECUENCIAL de un solo tono, no categorías: las cuatro son
+ * "sin dato" y solo se distinguen por peso. Arranca en SERIES_NEUTRALS.empty
+ * y va aclarando en claro / oscureciendo en oscuro.
+ */
+const EMPTY_RAMP = {
+  light: [SERIES_NEUTRALS.empty.light, "#b3b9c3", "#c9cdd4", "#dfe2e7"],
+  dark: [SERIES_NEUTRALS.empty.dark, "#5d6675", "#6f7887", "#818a99"],
+} as const
+
 /** Slot sintético por serie: sirve de dataKey y de nombre de variable CSS. */
 function slotOf(entry: SeriesEntry, namedIndex: number): string {
   if (entry.kind === "otros") return "otros"
-  if (entry.kind === "empty") return "vacio"
+  if (entry.kind === "empty") return `vacio${Math.max(0, NO_CAMPAIGN_ORDER.indexOf(entry.key))}`
   return `s${namedIndex}`
 }
 function colorOf(slot: string): { light: string; dark: string } {
   if (slot === "otros") return SERIES_NEUTRALS.otros
-  if (slot === "vacio") return SERIES_NEUTRALS.empty
+  if (slot.startsWith("vacio")) {
+    const i = Math.min(Number(slot.slice(5)) || 0, EMPTY_RAMP.light.length - 1)
+    return { light: EMPTY_RAMP.light[i], dark: EMPTY_RAMP.dark[i] }
+  }
   const i = Number(slot.slice(1))
   return { light: SERIES_PALETTE.light[i], dark: SERIES_PALETTE.dark[i] }
 }
@@ -92,7 +107,7 @@ export function CampaignMonthChart({
     [allOpportunities, panel, pipelines]
   )
 
-  const dimOpts = useMemo(() => ({ dimensionOf: campaignOf, emptyLabel: NO_CAMPAIGN_LABEL }), [])
+  const dimOpts = useMemo(() => ({ dimensionOf: campaignOf, emptyLabels: NO_CAMPAIGN_ORDER }), [])
 
   // Qué series existen y de qué color son se decide UNA vez, sobre el set SIN
   // filtrar: mover el filtro de fechas no debe repintar las series.
@@ -179,11 +194,13 @@ export function CampaignMonthChart({
               <>
                 Oportunidades por el mes en que se crearon, apiladas por la{" "}
                 <strong>campaña</strong> de Meta que las trajo. Las cinco campañas mayores
-                llevan nombre propio; el resto se pliega en <strong>Otros</strong>.{" "}
-                <strong>Sin campaña</strong> son los leads sin UTM: mensajes directos de
-                Facebook, Instagram y WhatsApp, importaciones y captura manual. Los colores
-                se fijan sobre todo el historial para que el filtro de fechas no los cambie.
-                Clic en un nombre de la leyenda lo aísla.
+                llevan nombre propio; el resto se pliega en <strong>Otros</strong>. Los
+                leads sin UTM de campaña van en gris, partidos por cómo llegaron:{" "}
+                <strong>Meta pagado</strong> (pauta a la que Meta no le pasó el nombre de
+                campaña — el gris más oscuro), <strong>Meta orgánico / mensaje directo</strong>,{" "}
+                <strong>importación / captura manual</strong> y <strong>otro origen</strong>.
+                Los colores se fijan sobre todo el historial para que el filtro de fechas no
+                los cambie. Clic en un nombre de la leyenda lo aísla.
               </>
             }
           />
@@ -206,7 +223,7 @@ export function CampaignMonthChart({
                     type="button"
                     onClick={() => setIsolated(isolated === slot ? null : slot)}
                     className={cn(
-                      "inline-flex min-w-0 max-w-[14rem] items-center gap-1.5 text-[11px] text-muted-foreground transition-opacity",
+                      "inline-flex min-w-0 max-w-[18rem] items-center gap-1.5 text-[11px] text-muted-foreground transition-opacity",
                       dimmed && "opacity-40"
                     )}
                     title={`${entry.label} · ${n(entry.total)}`}

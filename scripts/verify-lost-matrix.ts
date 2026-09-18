@@ -6,7 +6,7 @@
 // Envuelto en main() en vez de top-level await: este paquete es CJS.
 import assert from "node:assert/strict";
 import type { Opportunity } from "../lib/types";
-import { LOST_PIPELINE, NO_CAMPAIGN_LABEL, NO_REASON_LABEL, VENTAS_PIPELINE } from "../lib/cellarium-rules";
+import { LOST_PIPELINE, NO_CAMPAIGN_BUCKETS, NO_REASON_LABEL, VENTAS_PIPELINE } from "../lib/cellarium-rules";
 import { buildLostReasonMatrix } from "../lib/lost-reason-matrix";
 
 let seq = 0;
@@ -63,14 +63,14 @@ function main() {
     ]);
     assert.equal(m.grandTotal, 6);
     // Columnas por volumen desc, "Sin campaña" al final y marcada.
-    assert.deepEqual(m.columns.map((c) => c.label), ["A", "B", NO_CAMPAIGN_LABEL]);
+    assert.deepEqual(m.columns.map((c) => c.label), ["A", "B", NO_CAMPAIGN_BUCKETS.other]);
     assert.deepEqual(m.columns.map((c) => c.missing), [false, false, true]);
     assert.deepEqual(m.columns.map((c) => c.total), [3, 2, 1]);
     // Filas por volumen desc, "Sin motivo" al final y marcada.
     assert.deepEqual(m.rows.map((r) => r.label), ["Equivocado", "No Contestó 5to contacto", "Sin presupuesto", NO_REASON_LABEL]);
     assert.equal(m.rows.at(-1)!.missing, true);
     assert.equal(cellOf(m, "Equivocado", "A").count, 2);
-    assert.equal(cellOf(m, "Equivocado", NO_CAMPAIGN_LABEL).count, 1);
+    assert.equal(cellOf(m, "Equivocado", NO_CAMPAIGN_BUCKETS.other).count, 1);
     assert.equal(cellOf(m, NO_REASON_LABEL, "B").count, 1);
     assert.equal(cellOf(m, "Sin presupuesto", "B").count, 0);
     // Una oportunidad cae en UNA columna: la suma horizontal es el total de la fila.

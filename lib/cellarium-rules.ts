@@ -74,12 +74,48 @@ export function lostReasonOf(opp: Opportunity): string {
 }
 
 /**
+ * Las cuatro cubetas de "sin campaña", por CÓMO llegó el lead. Medido
+ * 2026-09-18: de 734 sin `utm_campaign`, 416 son Meta orgánico / mensaje
+ * directo, 165 son pauta PAGADA que perdió el parámetro (desde ago-2026 el
+ * 100 % de los leads llega así — el pendiente para la agencia está en Meta, no
+ * en el CRM), 98 importación o captura manual y 49 otro origen. Un solo gris
+ * de 734 escondía justo esa ruptura.
+ *
+ * Todas empiezan con NO_CAMPAIGN_LABEL: así isMissingLabel() las tiñe y los
+ * charts las reconocen con isNoCampaign(). El orden del objeto es el de
+ * presentación.
+ */
+export const NO_CAMPAIGN_BUCKETS = {
+  paid: `${NO_CAMPAIGN_LABEL} · Meta pagado`,
+  organic: `${NO_CAMPAIGN_LABEL} · Meta orgánico / mensaje directo`,
+  imported: `${NO_CAMPAIGN_LABEL} · importación / captura manual`,
+  other: `${NO_CAMPAIGN_LABEL} · otro origen`,
+} as const
+
+/** Las cuatro etiquetas, en orden de presentación. */
+export const NO_CAMPAIGN_ORDER: readonly string[] = Object.values(NO_CAMPAIGN_BUCKETS)
+
+/** ¿Esta etiqueta de campaña es una de las cubetas centinela? */
+export function isNoCampaign(label: string): boolean {
+  return label.startsWith(NO_CAMPAIGN_LABEL)
+}
+
+const IMPORT_MEDIA = new Set(["csv_import", "manual", "import", "api"])
+
+/**
  * La campaña de Meta que trajo el lead: `campaignName` es el `utmCampaign` de la
  * PRIMERA atribución (ver firstAttr en lib/sync.ts; medido 2026-09-18: solo 3
- * de 1 865 la traen en una atribución posterior y no en la primera). Sin UTM
- * cae en la centinela — y son ~39 %: mensajes directos de Facebook / Instagram
- * / WhatsApp sin anuncio rastreable, importaciones csv y captura manual.
+ * de 1 865 la traen en una atribución posterior y no en la primera), con caída
+ * al `attributionSource.campaign` del contacto (+6). Sin nada, una de las
+ * cuatro cubetas de NO_CAMPAIGN_BUCKETS según `sessionSource` y medio.
  */
 export function campaignOf(opp: Opportunity): string {
-  return (opp.campaignName ?? "").trim() || NO_CAMPAIGN_LABEL
+  const name = (opp.campaignName ?? "").trim()
+  if (name) return name
+  const session = norm(opp.sessionSource)
+  const medium = norm(opp.attributionMedium)
+  if (session === "paid social") return NO_CAMPAIGN_BUCKETS.paid
+  if (session === "social media") return NO_CAMPAIGN_BUCKETS.organic
+  if (session === "crm ui" || IMPORT_MEDIA.has(medium)) return NO_CAMPAIGN_BUCKETS.imported
+  return NO_CAMPAIGN_BUCKETS.other
 }

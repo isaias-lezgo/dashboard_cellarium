@@ -16,7 +16,7 @@ export const OTROS_KEY = "Otros"
 export const DEFAULT_MAX_NAMED = 5
 
 export interface SeriesEntry {
-  /** Valor de la dimensión, OTROS_KEY, o la etiqueta de la cubeta vacía. */
+  /** Valor de la dimensión, OTROS_KEY, o una de las etiquetas vacías. */
   key: string
   label: string
   kind: "named" | "otros" | "empty"
@@ -39,7 +39,7 @@ export interface MonthBucket {
 }
 
 export interface MonthSeriesData {
-  /** Total desc; "Otros" y la cubeta vacía, en ese orden, al final. */
+  /** Total desc; "Otros" y luego las cubetas vacías en su orden fijo, al final. */
   series: SeriesEntry[]
   /** Meses ascendentes; el bucket sin fecha al final. */
   buckets: MonthBucket[]
@@ -47,10 +47,14 @@ export interface MonthSeriesData {
 }
 
 export interface MonthSeriesOptions {
-  /** Valor de la dimensión de una oportunidad. Devuelve `emptyLabel` cuando no hay. */
+  /** Valor de la dimensión de una oportunidad. Devuelve una de `emptyLabels` cuando no hay. */
   dimensionOf: (opp: Opportunity) => string
-  /** Etiqueta de la cubeta vacía, p. ej. NO_CAMPAIGN_LABEL. */
-  emptyLabel: string
+  /**
+   * Etiquetas de las cubetas vacías, en el orden en que deben apilarse al
+   * final. Varias porque "sin campaña" se parte por cómo llegó el lead
+   * (NO_CAMPAIGN_ORDER); una dimensión con una sola cubeta manda un arreglo de uno.
+   */
+  emptyLabels: readonly string[]
   maxNamed?: number
   /**
    * Valores que conservan nombre propio; todo lo demás se pliega en "Otros".
@@ -90,10 +94,13 @@ export function buildMonthSeries(
   const monthOf = opts.monthOf ?? ((o: Opportunity) => monthKeyOf(o.createdAt))
   const countOnly = opts.measure !== "value"
 
+  const emptySet = new Set(opts.emptyLabels)
+  const fallbackEmpty = opts.emptyLabels[opts.emptyLabels.length - 1] ?? ""
+
   for (const o of opps) {
     if (!include(o)) continue
     const bucketKey = monthOf(o) ?? NO_DATE_KEY
-    const dim = opts.dimensionOf(o) || opts.emptyLabel
+    const dim = opts.dimensionOf(o) || fallbackEmpty
     const value = countOnly ? 1 : o.value ?? 0
 
     entries.push({ bucketKey, dim, value, id: o.id })
@@ -101,9 +108,9 @@ export function buildMonthSeries(
     dimTotals.set(dim, (dimTotals.get(dim) ?? 0) + value)
   }
 
-  // Orden de series: total desc, empates por nombre, cubeta vacía siempre al final.
+  // Orden de series: total desc, empates por nombre, cubetas vacías siempre al final.
   const named = [...dimTotals.keys()]
-    .filter((k) => k !== opts.emptyLabel)
+    .filter((k) => !emptySet.has(k))
     .sort((a, b) => {
       const diff = (dimTotals.get(b) ?? 0) - (dimTotals.get(a) ?? 0)
       return diff !== 0 ? diff : a.localeCompare(b, "es")
@@ -143,13 +150,9 @@ export function buildMonthSeries(
       foldedCount: foldedNames.length,
     })
   }
-  if (dimTotals.has(opts.emptyLabel)) {
-    series.push({
-      key: opts.emptyLabel,
-      label: opts.emptyLabel,
-      kind: "empty",
-      total: dimTotals.get(opts.emptyLabel) ?? 0,
-    })
+  for (const label of opts.emptyLabels) {
+    if (!dimTotals.has(label)) continue
+    series.push({ key: label, label, kind: "empty", total: dimTotals.get(label) ?? 0 })
   }
 
   // Orden de buckets: meses ascendentes y "sin fecha" AL FINAL.

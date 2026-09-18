@@ -8,13 +8,13 @@
 //
 // Puro y sin React para que scripts/verify-panel-filters.ts pueda afirmarlo.
 import type { Opportunity } from "./types"
-import { campaignOf, NO_CAMPAIGN_LABEL } from "./cellarium-rules"
+import { campaignOf, isNoCampaign, NO_CAMPAIGN_ORDER } from "./cellarium-rules"
 
 /** Estado de los dos menús. Arreglo vacío = ese menú no filtra nada. */
 export interface PanelFilters {
   /** Claves de asesor seleccionadas (las de ADVISORS). */
   asesores: string[]
-  /** Campañas seleccionadas tal cual las devuelve campaignOf(); NO_CAMPAIGN_LABEL alcanza a los sin dato. */
+  /** Campañas seleccionadas tal cual las devuelve campaignOf(); las cubetas "Sin campaña · …" son seleccionables. */
   campanas: string[]
 }
 
@@ -62,14 +62,15 @@ export interface CampaignOption {
   value: string
   label: string
   count: number
-  /** true solo en la cubeta "Sin campaña", que va al final y en gris. */
+  /** true en las cubetas "Sin campaña · …", que van al final y en gris. */
   muted?: boolean
 }
 
 /**
- * Las campañas presentes en el set, por volumen descendente, con "Sin campaña"
- * siempre al final — no es una campaña, pero deja esos registros alcanzables
- * desde la barra. Se calcula sobre el set SIN los filtros de panel puestos.
+ * Las campañas presentes en el set, por volumen descendente, con las cubetas
+ * "Sin campaña · …" siempre al final y en su orden fijo — no son campañas, pero
+ * dejan esos registros alcanzables desde la barra. Se calcula sobre el set SIN
+ * los filtros de panel puestos.
  */
 export function campaignOptions(opps: Opportunity[]): CampaignOption[] {
   const counts = new Map<string, number>()
@@ -78,13 +79,16 @@ export function campaignOptions(opps: Opportunity[]): CampaignOption[] {
     counts.set(c, (counts.get(c) ?? 0) + 1)
   }
   const named = [...counts.entries()]
-    .filter(([k]) => k !== NO_CAMPAIGN_LABEL)
+    .filter(([k]) => !isNoCampaign(k))
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"))
     .map(([value, count]) => ({ value, label: value, count }))
-  const missing = counts.get(NO_CAMPAIGN_LABEL) ?? 0
-  return missing > 0
-    ? [...named, { value: NO_CAMPAIGN_LABEL, label: NO_CAMPAIGN_LABEL, count: missing, muted: true }]
-    : named
+  const missing = NO_CAMPAIGN_ORDER.filter((k) => counts.has(k)).map((value) => ({
+    value,
+    label: value,
+    count: counts.get(value)!,
+    muted: true,
+  }))
+  return [...named, ...missing]
 }
 
 /**

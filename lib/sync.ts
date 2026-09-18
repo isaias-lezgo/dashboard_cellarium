@@ -170,11 +170,19 @@ function transformContact(ghl: GHLContact, customFieldMap: Map<string, string>):
     createdAt: ghl.dateAdded,
     source: attr?.utmSource || attr?.adSource || ghl.source || "direct",
     campaign: buildCampaignLabel(attr?.utmContent, attr?.utmCampaign),
-    campaignName: attr?.utmCampaign || undefined,
+    // /contacts/search no trae `attributions[]`: la campaña del contacto vive en
+    // `attributionSource.campaign` (sin el prefijo utm). Medido 2026-09-18 en
+    // Cellarium: 0 contactos con `attributions[]`, 2 048 con `campaign` aquí.
+    campaignName:
+      attr?.utmCampaign ||
+      ghl.attributionSource?.campaign ||
+      ghl.lastAttributionSource?.campaign ||
+      undefined,
     adType: attr?.utmMedium || attr?.utmSessionSource,
     adId: attr?.utmAdId || undefined,
     attributionUrl: attr?.url || ghl.attributionSource?.url || undefined,
     attributionMedium: attr?.medium || attr?.utmSessionSource || undefined,
+    sessionSource: attr?.utmSessionSource || ghl.attributionSource?.sessionSource || undefined,
     ...(Object.keys(customFieldsResolved).length > 0 ? { customFieldsResolved } : {}),
   };
 }
@@ -204,6 +212,7 @@ function transformOpportunity(
     adId: attr?.utmAdId || undefined,
     attributionUrl: attr?.url || undefined,
     attributionMedium: attr?.medium || attr?.utmSessionSource || undefined,
+    sessionSource: attr?.utmSessionSource || undefined,
     lostReason:
       ghl.status === "lost"
         ? resolveLostReason(ghl.lostReasonId, lostReasonMap, customFieldsResolved)
@@ -686,6 +695,7 @@ export async function syncProject(
         adId: attr?.utmAdId || undefined,
         attributionUrl: attr?.url || undefined,
         attributionMedium: attr?.medium || attr?.utmSessionSource || undefined,
+        sessionSource: attr?.utmSessionSource || undefined,
         assignedTo:
           raw.assignedTo && userMap.has(raw.assignedTo)
             ? userMap.get(raw.assignedTo)
@@ -712,6 +722,7 @@ export async function syncProject(
         if (!opp.adId) opp.adId = contact.adId;
         if (!opp.attributionUrl) opp.attributionUrl = contact.attributionUrl;
         if (!opp.attributionMedium) opp.attributionMedium = contact.attributionMedium;
+        if (!opp.sessionSource) opp.sessionSource = contact.sessionSource;
         // "Origen de Lead" is a contact-level custom field; surface it on the
         // opportunity as an explicit, high-confidence fallback for platformLabel.
         if (!opp.originPlatform) {

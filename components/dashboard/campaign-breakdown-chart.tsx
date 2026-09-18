@@ -29,7 +29,7 @@ const chartConfig = {
 }
 
 /** Los nombres de campaña de Meta son largos; el completo sigue en el tooltip. */
-const MAX_TICK = 34
+const MAX_TICK = 40
 const shortLabel = (v: string) => (v.length > MAX_TICK ? v.slice(0, MAX_TICK - 1) + "…" : v)
 
 export interface CampaignBreakdownChartProps {
@@ -103,9 +103,11 @@ export function CampaignBreakdownChart({
                 Oportunidades del periodo agrupadas por la <strong>campaña</strong> de Meta
                 que las trajo (la primera atribución de la oportunidad), partidas en ganadas,
                 abiertas y perdidas con la misma regla que &ldquo;Oportunidades por
-                estado&rdquo;. <strong>Sin campaña</strong> junta los leads que llegaron sin UTM de
-                campaña —mensajes directos de Facebook, Instagram y WhatsApp sin anuncio
-                rastreable, importaciones y captura manual— y son ~4 de cada 10.
+                estado&rdquo;. Los leads sin UTM de campaña (~4 de cada 10) van al final,
+                partidos por cómo llegaron: <strong>Meta pagado</strong> es pauta a la que Meta
+                no le pasó el nombre de campaña — el hueco que hay que corregir en los
+                anuncios—; <strong>Meta orgánico / mensaje directo</strong>, importaciones y otro
+                origen nunca lo tuvieron.
               </>
             }
           />
@@ -140,7 +142,7 @@ export function CampaignBreakdownChart({
                 <YAxis
                   type="category"
                   dataKey="label"
-                  width={210}
+                  width={230}
                   tick={<MissingAwareTick />}
                   tickFormatter={shortLabel}
                   tickLine={false}
