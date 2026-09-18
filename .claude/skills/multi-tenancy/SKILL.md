@@ -5,7 +5,7 @@ description: How the password-as-identity multi-client machinery works — the r
 
 # Multi-client (multi-tenancy)
 
-> This deployment serves Grupo VAEO only, so multi-tenancy is no longer a *design*
+> This deployment serves Cellarium only, so multi-tenancy is no longer a *design*
 > concern — but the machinery is live and load-bearing. The two prohibitions that guard
 > it live in the root `CLAUDE.md`, not here; read them there before changing anything.
 
