@@ -28,7 +28,7 @@ interface DateRangeFilterProps {
   value: DateFilter
   onChange: (value: DateFilter) => void
   /**
-   * Otros filtros de alcance del panel (sucursal, asesor), pegados a los de
+   * Otros filtros de alcance del panel (asesor, campaña), pegados a los de
    * fecha porque son la misma clase de control: cambian de qué registros habla
    * el panel entero.
    */

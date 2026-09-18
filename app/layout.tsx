@@ -9,7 +9,7 @@ const _geist = Geist({ subsets: ['latin'] })
 const _geistMono = Geist_Mono({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Dashboard de Ventas - Lezgo Suite CRM',
+  title: 'Cellarium - Lezgo Suite CRM',
   description: 'Dashboard de Lezgo Suite CRM: oportunidades, contactos, citas y tareas en una sola vista.',
 }
 

@@ -17,9 +17,9 @@ export interface MultiSelectOption {
   /** Cuántos registros trae — se pinta a la derecha de la fila. */
   count?: number
   /**
-   * Cubetas que no son una categoría real ("Sin sucursal", "Sin dato"): van al
-   * final y en el rojizo de dato faltante, para que no compitan con una
-   * sucursal de verdad y se lean como el hueco de captura que son.
+   * Cubetas que no son una categoría real ("Sin campaña"): van al final y en
+   * el rojizo de dato faltante, para que no compitan con una campaña de verdad
+   * y se lean como el hueco de captura que son.
    */
   muted?: boolean
   /**
@@ -48,7 +48,7 @@ interface MultiSelectFilterProps {
 
 /**
  * Menú de selección múltiple para la barra de filtros. Uno solo, montado dos
- * veces (sucursal / asesor) — el estado y el significado viven en
+ * veces (asesor / campaña) — el estado y el significado viven en
  * `lib/panel-filters.ts`, aquí solo se pintan casillas.
  *
  * No usa el `Select` de shadcn: ese no hace selección múltiple. Popover +

@@ -61,7 +61,7 @@ const pctFmt = new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 })
 
 export interface AssignmentFunnelChartProps {
   panel: PanelId
-  /** Oportunidades ya filtradas por fecha y por el toggle de HubSpot. */
+  /** Oportunidades ya filtradas por fecha y por los filtros del panel. */
   opportunities: Opportunity[]
   /** Sin filtrar — los joins del drawer se resuelven contra estas. */
   allOpportunities: Opportunity[]

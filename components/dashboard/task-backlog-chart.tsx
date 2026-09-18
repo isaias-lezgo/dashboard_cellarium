@@ -62,9 +62,9 @@ export interface TaskBacklogChartProps {
   /** Sin filtrar POR FECHA, pero ya con los filtros de panel puestos. */
   allOpportunities: Opportunity[]
   /**
-   * El set crudo, sin filtro de panel ni toggle de HubSpot. Solo se usa para
-   * decidir quién es huérfano: `allOpportunities` no sirve para eso porque, con
-   * un filtro de sucursal puesto, un contacto cuya oportunidad quedó fuera se
+   * El set crudo, sin filtros de panel. Solo se usa para decidir quién es
+   * huérfano: `allOpportunities` no sirve para eso porque, con un filtro de
+   * asesor puesto, un contacto cuya oportunidad quedó fuera se
    * vería idéntico a uno que nunca tuvo ninguna — y la nota al pie afirmaría
    * algo falso sobre el dato.
    */
@@ -204,10 +204,9 @@ export function TaskBacklogChart({
                 oportunidad en el embudo <strong>{scope.label}</strong>, agrupadas por el
                 asesor asignado y por qué tan cerca está su vencimiento.{" "}
                 <strong>No respeta el filtro de fechas</strong>: &ldquo;vencida&rdquo; es una
-                condición de hoy, no de un periodo. Sí respeta los filtros de sucursal,
-                asesor, origen y canal. Las tareas de GHL no guardan a qué oportunidad
-                pertenecen, así que el reparto por línea de negocio va por el contacto — uno
-                con oportunidades en las dos líneas aparece en los dos paneles.
+                condición de hoy, no de un periodo. Sí respeta los filtros de asesor y
+                campaña. Las tareas de GHL no guardan a qué oportunidad pertenecen, así que
+                se cuentan por el contacto de la oportunidad.
               </>
             }
           />

@@ -91,7 +91,7 @@ export const SERIES_NEUTRALS = {
 } as const
 
 /**
- * Cubetas centinela — "Sin fecha", "Sin sucursal", "Sin servicio", "Sin dato",
+ * Cubetas centinela — "Sin fecha", "Sin campaña", "Sin motivo", "Sin dato",
  * "Sin asesor", "Sin motivo". No son una categoría del negocio: son un hueco de
  * captura en GHL, y por eso se rotulan en un **rojizo leve** en vez del gris de
  * antes. Un gris las hacía leer como "otra fila más"; el tinte las señala como
