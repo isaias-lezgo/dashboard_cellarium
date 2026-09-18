@@ -20,8 +20,8 @@ advisors work what they have**. There is no money in the CRM (`monetaryValue` un
 all but 2 opps; the won ones carry 0). **Do not build revenue charts.**
 
 GHL sub-account `hqz4e06E3n5wYIxOoZ6V`, timezone `America/Mexico_City`. Panel reader:
-Hoganza's dirección. **One tab** ("Cellarium") plus "Asistente IA", four blocks in the
-order dirección asked for: **Campañas, Embudo, Sin atención, Perdidas**. Design spec:
+Hoganza's dirección. **One tab** ("Cellarium") plus "Asistente IA", in the order
+dirección asked for: **KPI strip, Sin atención, Campañas, Embudo, Perdidas**. Design spec:
 `docs/superpowers/specs/2026-09-17-panel-cellarium-design.md`; plan under `plans/`.
 
 **Multi-tenancy is not a design concern here.** The roster code (`lib/clients.ts`,
@@ -179,9 +179,9 @@ nothing re-inlines it (`pnpm verify:cellarium` asserts every rule):
 - `statusBucket()` in `opportunity-breakdown.ts` applies lost-then-won and every chart
   goes through it, so all cards agree on 1 091 lost / 4 won / 770 open.
 
-Contacts with **no** opportunity are never dropped: `no-opportunity-card.tsx` counts them
-against the **raw** `unfilteredOpportunities` set (a panel filter must not fake orphans)
-and keeps them out of every aggregate. 252 today (12 %).
+Contacts with **no** opportunity are never dropped: the "Contactos sin oportunidad" card
+in `kpi-strip.tsx` counts them against the **raw** `unfilteredOpportunities` set (a panel
+filter must not fake orphans) and keeps them out of every aggregate. 252 today (12 %).
 
 ### Current state
 
@@ -191,8 +191,35 @@ into every per-opportunity chart; keep that pattern. Its prop surface is the one
 `unfilteredOpportunities` + `allTasks` + the conversation-activity trio), so a new chart
 drops in with no plumbing. Mounted, in order:
 
-- **`no-opportunity-card.tsx`** — "Contactos sin oportunidad", above everything (see above).
-- **Campañas** (first, by request)
+- **`kpi-strip.tsx`** — six `KpiCard`s in one row, each with a drill-down: Leads del
+  periodo, Abiertas, Ganadas, Perdidas, Sin asesor (all from `statusBucket` over the scoped
+  slice, so they agree with every chart below) and Contactos sin oportunidad (see above).
+- **Sin atención** (right under the strip, by request) — `stale-opportunity-matrix.tsx`,
+  unchanged except the universe is `isLiveOpp()`. It ignores the global date filter ("sin
+  atención en 60 días" is a condition of TODAY), reading `allOpportunities` instead of the
+  filtered slice; it does respect asesor and campaña because those come applied upstream.
+  Measured 2026-09-18: 650 of 770 open opps sit in the +60 d / +60 d cell. Keep the
+  following, they are hard-won:
+  - `unfilteredOpportunities` (the raw `data.opportunities`) is NOT redundant with
+    `allOpportunities`: the latter already went through the panel menus. The KPI strip
+    uses it to tell a contact with NO opportunity from one whose opportunity was filtered
+    out. Don't merge them.
+  - The message axis of the matrix does NOT come from the `dashboard-messages` dataset
+    (that route brings the last 30 conversations PER USER, a sample). It comes from
+    `app/api/conversation-activity`, which walks `/conversations/search` by cursor up to
+    `STALE_HORIZON_DAYS` and only opens threads whose last message is inbound.
+  - **`/conversations/search` returns `lastMessageDate` as epoch MILLISECONDS**, not the
+    ISO the type declares. The route normalizes it with `toIso()` at the boundary; don't
+    remove that — the same epoch as a string would be Invalid Date and send everyone to
+    the abandonment bucket.
+  - **`STALE_HORIZON_DAYS` (60) couples the route to the buckets.** Add a 90-day bucket →
+    raise it, or 60–90-day conversations never arrive and the chart lies.
+  - **The matrix does not render until `activityStatus === "ready"`.** With an empty map
+    every opp falls in "+60 d" and the chart claims total abandonment: alarming,
+    plausible, false. `loading` paints a skeleton, `error` an explicit retry state.
+  - **Movement is `lastStageChangeAt`, never `updatedAt`.** Make flows and a WhatsApp bot
+    push `updatedAt` on every automatic write.
+- **Campañas**
   - **`campaign-breakdown-chart.tsx`** ("Leads por campaña", `lib/campaign-breakdown.ts`)
     — horizontal bars, one per campaign by volume, stacked by `statusBucket`; "Sin campaña"
     last, label in `MISSING_TEXT`. Y-axis labels are truncated with `tickFormatter`
@@ -222,31 +249,6 @@ drops in with no plumbing. Mounted, in order:
   - **`assignment-funnel-chart.tsx`** ("Leads sin asesor por mes") — universe is
     **only** opps without `assignedTo` (146 today), stacked by status; assigned ones only
     feed `monthTotal`, the "% del mes" denominator. Legend lists only buckets with data.
-- **Sin atención** — `stale-opportunity-matrix.tsx`, unchanged except the universe is
-  `isLiveOpp()`. It ignores the global date filter ("sin atención en 60 días" is a
-  condition of TODAY), reading `allOpportunities` instead of the filtered slice; it does
-  respect asesor and campaña because those come applied upstream. Keep the following,
-  they are hard-won:
-  - `unfilteredOpportunities` (the raw `data.opportunities`) is NOT redundant with
-    `allOpportunities`: the latter already went through the panel menus. The
-    no-opportunity card uses it to tell a contact with NO opportunity from one whose
-    opportunity was filtered out. Don't merge them.
-  - The message axis of the matrix does NOT come from the `dashboard-messages` dataset
-    (that route brings the last 30 conversations PER USER, a sample). It comes from
-    `app/api/conversation-activity`, which walks `/conversations/search` by cursor up to
-    `STALE_HORIZON_DAYS` and only opens threads whose last message is inbound.
-  - **`/conversations/search` returns `lastMessageDate` as epoch MILLISECONDS**, not the
-    ISO the type declares. The route normalizes it with `toIso()` at the boundary; don't
-    remove that — the same epoch as a string would be Invalid Date and send everyone to
-    the abandonment bucket.
-  - **`STALE_HORIZON_DAYS` (60) couples the route to the buckets.** Add a 90-day bucket →
-    raise it, or 60–90-day conversations never arrive and the chart lies.
-  - **The matrix does not render until `activityStatus === "ready"`.** With an empty map
-    every opp falls in "+60 d" and the chart claims total abandonment: alarming,
-    plausible, false. `loading` paints a skeleton, `error` an explicit retry state.
-  - **Movement is `lastStageChangeAt`, never `updatedAt`.** Make flows and a WhatsApp bot
-    push `updatedAt` on every automatic write.
-
 - **Perdidas** (last, by request)
   - **`lost-reason-matrix.tsx`** ("Motivos de pérdida", `lib/lost-reason-matrix.ts`) —
     motivo × **campaña**; one column per opp so a row's horizontal sum is its total. Rows

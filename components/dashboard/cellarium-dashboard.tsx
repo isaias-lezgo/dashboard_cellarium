@@ -24,13 +24,12 @@ import { CampaignMonthChart } from "./campaign-month-chart"
 import { AssignmentFunnelChart } from "./assignment-funnel-chart"
 import { StaleOpportunityMatrix } from "./stale-opportunity-matrix"
 import { LostReasonMatrix } from "./lost-reason-matrix"
-import { NoOpportunityCard } from "./no-opportunity-card"
+import { KpiStrip } from "./kpi-strip"
 
 /**
- * El panel de Cellarium: un solo negocio, cuatro bloques —campañas, embudo, sin
- * atención y perdidas— sobre los dos pipelines de la cuenta (Ventas ∪ Leads
- * Perdidos). El orden es el que pidió dirección: campañas arriba, motivos de
- * pérdida hasta abajo.
+ * El panel de Cellarium: un solo negocio sobre los dos pipelines de la cuenta
+ * (Ventas ∪ Leads Perdidos). El orden es el que pidió dirección: la franja de
+ * KPIs, sin atención, campañas, embudo, y los motivos de pérdida hasta abajo.
  *
  * La prop surface se hereda del panel de VAEO a propósito: `app/page.tsx`
  * alimenta las slices filtradas por fecha más los sets `all*` sin filtrar como
@@ -115,17 +114,15 @@ export function CellariumDashboard({
 
   return (
     <DashboardShell>
-      <NoOpportunityCard
-        contacts={contacts}
-        unfilteredOpportunities={unfilteredOpportunities}
-        allOpportunities={allOpportunities}
-        allContacts={allContacts}
-        tasks={tasks}
-        calls={calls}
-        allPautas={allPautas}
-        appointments={appointments}
-        messages={messages}
-        locationId={locationId}
+      <KpiStrip {...shared} unfilteredOpportunities={unfilteredOpportunities} />
+
+      <SectionHeader title="Sin atención" />
+      <StaleOpportunityMatrix
+        {...shared}
+        conversationActivity={conversationActivity}
+        activityStatus={activityStatus}
+        activityProgress={activityProgress}
+        onRetryActivity={onRetryActivity}
       />
 
       <SectionHeader title="Campañas" />
@@ -137,15 +134,6 @@ export function CellariumDashboard({
       <OpportunityStatusChart {...shared} />
       <AdvisorStageTable {...shared} />
       <AssignmentFunnelChart {...shared} />
-
-      <SectionHeader title="Sin atención" />
-      <StaleOpportunityMatrix
-        {...shared}
-        conversationActivity={conversationActivity}
-        activityStatus={activityStatus}
-        activityProgress={activityProgress}
-        onRetryActivity={onRetryActivity}
-      />
 
       <SectionHeader title="Perdidas" />
       <LostReasonMatrix {...shared} />
