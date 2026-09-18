@@ -51,6 +51,8 @@ export interface Contact {
   source?: string
   campaign?: string
   campaignName?: string // computed: utmCampaign alone (the ad campaign / "pauta" identity)
+  adName?: string       // computed: Meta ad headline (click-to-WhatsApp leads carry it even without utm_campaign)
+  leadFormName?: string // computed: Meta instant-form name, resolved by the sync from the attribution's mediumId
   adType?: string
   adId?: string
   attributionUrl?: string
@@ -111,6 +113,8 @@ export interface Opportunity {
   // Computed attribution (derived from attributions array)
   campaign?: string
   campaignName?: string // computed: utmCampaign alone (the ad campaign / "pauta" identity)
+  adName?: string       // computed: Meta ad headline (click-to-WhatsApp leads carry it even without utm_campaign)
+  leadFormName?: string // computed: Meta instant-form name, resolved by the sync from the attribution's mediumId
   adType?: string
   adId?: string
   attributionUrl?: string

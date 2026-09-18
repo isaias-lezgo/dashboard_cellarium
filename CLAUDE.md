@@ -187,6 +187,20 @@ nothing re-inlines it (`pnpm verify:cellarium` asserts every rule):
   paid, the one that matters). `opp.sessionSource` is the raw `utmSessionSource`, kept by
   the sync for this. The `Pautas` custom object exists but has **0 records** and the
   contact's `ID/Nombre/URL Pauta` fields are empty — the Make flow never ran here.
+  - **Before the sentinel, paid leads fall to what Meta DID pass**: `campaignOf()` goes
+    `campaignName` → `Anuncio · <adName>` → `Form · <leadFormName>` → sentinel
+    (`AD_LABEL_PREFIX` / `FORM_LABEL_PREFIX`; the prefix is there so dirección doesn't
+    compare an ad against a campaign as if they were the same level). Click-to-WhatsApp
+    leads carry `adName` in the attribution (via `ctwaClid`); instant-form leads carry
+    only the form's id as `mediumId`, so the sync (`fetchLeadFormNames`, config phase)
+    resolves it through `/ad-publishing/facebook/page/:id/forms` — failure-tolerant,
+    with no map those leads just stay in the paid sentinel. `adFacts()` in `lib/sync.ts`
+    reads the first attribution and falls to the last only when the first has neither.
+    Measured 2026-09-18: the paid sentinel went 166 → 2; `Form · Cellarium 1.0-copy` is
+    103 and eight `Anuncio ·` rows total 73. It is a **proxy** — headlines change with
+    every creative and get reused across campaigns — the real fix is still
+    `utm_campaign` on the ads / form. Note the `/contacts/` list returns `attributions[]`
+    (2 045 of 2 105) and NOT `attributionSource`; the sync reads both shapes.
 - `statusBucket()` in `opportunity-breakdown.ts` applies lost-then-won and every chart
   goes through it, so all cards agree on 1 091 lost / 4 won / 770 open.
 

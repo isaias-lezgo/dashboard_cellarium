@@ -79,7 +79,9 @@ export function lostReasonOf(opp: Opportunity): string {
  * directo, 165 son pauta PAGADA que perdió el parámetro (desde ago-2026 el
  * 100 % de los leads llega así — el pendiente para la agencia está en Meta, no
  * en el CRM), 98 importación o captura manual y 49 otro origen. Un solo gris
- * de 734 escondía justo esa ruptura.
+ * de 734 escondía justo esa ruptura. Desde que campaignOf() cae al anuncio /
+ * al form, la cubeta "pagado" queda en 2: los 163 restantes se leen por
+ * anuncio o formulario, con prefijo.
  *
  * Todas empiezan con NO_CAMPAIGN_LABEL: así isMissingLabel() las tiñe y los
  * charts las reconocen con isNoCampaign(). El orden del objeto es el de
@@ -103,15 +105,34 @@ export function isNoCampaign(label: string): boolean {
 const IMPORT_MEDIA = new Set(["csv_import", "manual", "import", "api"])
 
 /**
+ * Prefijos de las etiquetas que NO son campañas sino otro nivel de la jerarquía
+ * de Meta (campaña → conjunto → anuncio → formulario). Van con prefijo para que
+ * dirección no compare un anuncio contra una campaña como si fueran lo mismo.
+ */
+export const AD_LABEL_PREFIX = "Anuncio · "
+export const FORM_LABEL_PREFIX = "Form · "
+
+/**
  * La campaña de Meta que trajo el lead: `campaignName` es el `utmCampaign` de la
  * PRIMERA atribución (ver firstAttr en lib/sync.ts; medido 2026-09-18: solo 3
  * de 1 865 la traen en una atribución posterior y no en la primera), con caída
- * al `attributionSource.campaign` del contacto (+6). Sin nada, una de las
- * cuatro cubetas de NO_CAMPAIGN_BUCKETS según `sessionSource` y medio.
+ * al `attributionSource.campaign` del contacto (+6).
+ *
+ * Sin campaña, la pauta pagada cae a lo que Meta SÍ le pasó a GHL: el `adName`
+ * del anuncio (click-to-WhatsApp, vía ctwaClid) o el nombre del instant form
+ * (resuelto por el sync a partir del `mediumId`). Medido 2026-09-18 sobre los
+ * 166 "Meta pagado sin campaña": 87 traen anuncio, 96 el form, 1 nada. Es un
+ * proxy —el headline cambia con cada creativo y se reusa entre campañas—; el
+ * arreglo de fondo sigue siendo `utm_campaign` en Meta. Sin nada de eso, una de
+ * las cuatro cubetas de NO_CAMPAIGN_BUCKETS según `sessionSource` y medio.
  */
 export function campaignOf(opp: Opportunity): string {
   const name = (opp.campaignName ?? "").trim()
   if (name) return name
+  const ad = (opp.adName ?? "").trim()
+  if (ad) return `${AD_LABEL_PREFIX}${ad}`
+  const form = (opp.leadFormName ?? "").trim()
+  if (form) return `${FORM_LABEL_PREFIX}${form}`
   const session = norm(opp.sessionSource)
   const medium = norm(opp.attributionMedium)
   if (session === "paid social") return NO_CAMPAIGN_BUCKETS.paid

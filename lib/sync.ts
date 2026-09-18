@@ -14,6 +14,8 @@ import {
   getUsers,
   getCustomFields,
   getLostReasons,
+  getFacebookPages,
+  getFacebookPageLeadForms,
   getCustomObjects,
   getAllCustomObjectRecords,
   getCalendarEvents,
@@ -51,12 +53,59 @@ type Attribution = {
   medium?: string;
   utmAdId?: string;
   url?: string;
+  adName?: string;
+  mediumId?: string;
+  isLast?: boolean;
   [key: string]: unknown;
 };
 
 function firstAttr(attributions?: Attribution[]): Attribution | undefined {
   if (!attributions?.length) return undefined;
   return attributions.find((a) => a.isFirst) ?? attributions[0];
+}
+
+/** Nombres de instant forms de Meta por id, para resolver `mediumId`. */
+type LeadFormNames = Map<string, string>;
+
+// Lo que Meta SÍ le pasa a GHL cuando el anuncio no trae utm_campaign: el
+// headline del anuncio (click-to-WhatsApp, vía ctwaClid → `adName`) o el
+// instant form (`mediumId` es el id del form; el nombre solo vive en
+// /ad-publishing, de ahí el mapa). La primera atribución manda; la última solo
+// entra cuando la primera no trae ninguna de las dos (medido 2026-09-18: +20
+// de 166). campaignOf() en lib/cellarium-rules.ts decide cómo se etiquetan.
+function adFacts(
+  attributions: Attribution[] | undefined,
+  formNames: LeadFormNames
+): { adName?: string; leadFormName?: string } {
+  const pick = (a?: Attribution) => ({
+    adName: a?.adName?.trim() || undefined,
+    leadFormName: (a?.mediumId && formNames.get(a.mediumId)) || undefined,
+  });
+  const first = pick(firstAttr(attributions));
+  if (first.adName || first.leadFormName) return first;
+  return pick(attributions?.find((a) => a.isLast));
+}
+
+// Un fallo aquí no puede tumbar el sync: sin mapa los leads de form caen a la
+// cubeta "Sin campaña · Meta pagado", que es honesta, no falsa.
+async function fetchLeadFormNames(): Promise<LeadFormNames> {
+  const names: LeadFormNames = new Map();
+  try {
+    const pages = await getFacebookPages();
+    const perPage = await Promise.allSettled(
+      pages
+        .map((p) => p.id ?? p.facebookPageId)
+        .filter((id): id is string => Boolean(id))
+        .map((id) => getFacebookPageLeadForms(id))
+    );
+    for (const r of perPage) {
+      if (r.status !== "fulfilled") continue;
+      for (const f of r.value) if (f.id && f.name) names.set(f.id, f.name);
+    }
+  } catch (err) {
+    console.warn("[GHL] Lead forms unavailable — form-level campaign fallback disabled:", err);
+  }
+  return names;
 }
 
 function buildCampaignLabel(content?: string, campaign?: string): string | undefined {
@@ -153,7 +202,11 @@ function resolveLostReason(
 }
 
 // Spread all GHL fields through; add computed fields on top.
-function transformContact(ghl: GHLContact, customFieldMap: Map<string, string>): Contact {
+function transformContact(
+  ghl: GHLContact,
+  customFieldMap: Map<string, string>,
+  formNames: LeadFormNames
+): Contact {
   const customFieldsResolved = resolveCustomFields(ghl.customFields, customFieldMap);
   const attr = firstAttr(ghl.attributions);
   return {
@@ -170,14 +223,16 @@ function transformContact(ghl: GHLContact, customFieldMap: Map<string, string>):
     createdAt: ghl.dateAdded,
     source: attr?.utmSource || attr?.adSource || ghl.source || "direct",
     campaign: buildCampaignLabel(attr?.utmContent, attr?.utmCampaign),
-    // /contacts/search no trae `attributions[]`: la campaña del contacto vive en
-    // `attributionSource.campaign` (sin el prefijo utm). Medido 2026-09-18 en
-    // Cellarium: 0 contactos con `attributions[]`, 2 048 con `campaign` aquí.
+    // GHL sirve la atribución del contacto en dos formas según el endpoint:
+    // `attributions[]` (con utm*) o `attributionSource` (sin el prefijo utm).
+    // Medido 2026-09-18 en Cellarium, /contacts/ trae `attributions[]` en
+    // 2 045 de 2 105 y `attributionSource` en 0; se leen ambas por si cambia.
     campaignName:
       attr?.utmCampaign ||
       ghl.attributionSource?.campaign ||
       ghl.lastAttributionSource?.campaign ||
       undefined,
+    ...adFacts(ghl.attributions, formNames),
     adType: attr?.utmMedium || attr?.utmSessionSource,
     adId: attr?.utmAdId || undefined,
     attributionUrl: attr?.url || ghl.attributionSource?.url || undefined,
@@ -191,7 +246,8 @@ function transformOpportunity(
   ghl: GHLOpportunity,
   pipelines: Map<string, { name: string; stages: Map<string, string> }>,
   customFieldMap: Map<string, string>,
-  lostReasonMap: Map<string, string>
+  lostReasonMap: Map<string, string>,
+  formNames: LeadFormNames
 ): Opportunity {
   const pipeline = pipelines.get(ghl.pipelineId);
   const stageName = pipeline?.stages.get(ghl.pipelineStageId) || "Unknown";
@@ -208,6 +264,7 @@ function transformOpportunity(
     source: attr?.utmSource || attr?.adSource || ghl.source,
     campaign: buildCampaignLabel(attr?.utmContent, attr?.utmCampaign),
     campaignName: attr?.utmCampaign || undefined,
+    ...adFacts(ghl.attributions, formNames),
     adType: attr?.utmMedium || attr?.utmSessionSource,
     adId: attr?.utmAdId || undefined,
     attributionUrl: attr?.url || undefined,
@@ -506,6 +563,9 @@ export async function syncProject(
       });
 
     // Fetch pipelines, users, lost reasons, and custom field definitions first (fast, no pagination)
+    // fetchLeadFormNames never rejects (it swallows into an empty map), so it
+    // rides alongside the allSettled quartet without changing its shape.
+    const formNamesPromise = fetchLeadFormNames();
     const [pipelinesResult, usersResult, customFieldsResult, lostReasonsResult] =
       await Promise.allSettled([
         getPipelines(),
@@ -513,6 +573,7 @@ export async function syncProject(
         getCustomFields(),
         getLostReasons(),
       ]);
+    const formNames = await formNamesPromise;
 
     send({ type: "progress", message: "Cargando pipelines y configuración…" });
 
@@ -640,7 +701,7 @@ export async function syncProject(
 
     // Transform contacts
     const contacts: Contact[] = contactsRaw.map((c) => {
-      const contact = transformContact(c, customFieldMap);
+      const contact = transformContact(c, customFieldMap, formNames);
       if (contact.assignedTo && userMap.has(contact.assignedTo)) {
         contact.assignedTo = userMap.get(contact.assignedTo);
       }
@@ -649,7 +710,7 @@ export async function syncProject(
 
     // Transform opportunities
     const opportunities: Opportunity[] = opportunitiesRaw.map((o) => {
-      const opp = transformOpportunity(o, pipelineMap, customFieldMap, lostReasonMap);
+      const opp = transformOpportunity(o, pipelineMap, customFieldMap, lostReasonMap, formNames);
       if (opp.assignedTo && userMap.has(opp.assignedTo)) {
         opp.assignedTo = userMap.get(opp.assignedTo);
       }
@@ -691,6 +752,7 @@ export async function syncProject(
         source: attr?.utmSource || attr?.adSource || raw.source || "direct",
         campaign: buildCampaignLabel(attr?.utmContent, attr?.utmCampaign),
         campaignName: attr?.utmCampaign || undefined,
+        ...adFacts(raw.attributions, formNames),
         adType: attr?.utmMedium || attr?.utmSessionSource,
         adId: attr?.utmAdId || undefined,
         attributionUrl: attr?.url || undefined,
@@ -717,6 +779,10 @@ export async function syncProject(
       if (contact) {
         if (!opp.campaign) opp.campaign = contact.campaign;
         if (!opp.campaignName) opp.campaignName = contact.campaignName;
+        if (!opp.adName && !opp.leadFormName) {
+          opp.adName = contact.adName;
+          opp.leadFormName = contact.leadFormName;
+        }
         if (!opp.adType) opp.adType = contact.adType;
         if (!opp.source) opp.source = contact.source;
         if (!opp.adId) opp.adId = contact.adId;

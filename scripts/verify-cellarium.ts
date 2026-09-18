@@ -10,7 +10,9 @@
 import assert from "node:assert/strict";
 import type { Opportunity } from "../lib/types";
 import {
+  AD_LABEL_PREFIX,
   campaignOf,
+  FORM_LABEL_PREFIX,
   isInLostPipeline,
   isNoCampaign,
   NO_CAMPAIGN_BUCKETS,
@@ -34,6 +36,8 @@ function opp(o: {
   stage?: string;
   lostReason?: string;
   campaignName?: string;
+  adName?: string;
+  leadFormName?: string;
   sessionSource?: string;
   attributionMedium?: string;
 }): Opportunity {
@@ -51,6 +55,8 @@ function opp(o: {
     pipelineName: o.pipelineName ?? (inLost ? LOST_PIPELINE.label : VENTAS_PIPELINE.label),
     lostReason: o.lostReason,
     campaignName: o.campaignName,
+    adName: o.adName,
+    leadFormName: o.leadFormName,
     sessionSource: o.sessionSource,
     attributionMedium: o.attributionMedium,
   };
@@ -141,6 +147,31 @@ function main() {
     }
     // El orden de la lista es el de presentación: pagado primero, otro al final.
     assert.deepEqual(Object.keys(NO_CAMPAIGN_BUCKETS), ["paid", "organic", "imported", "other"]);
+  }
+
+  // 7b. Sin utm_campaign, la pauta pagada cae al ANUNCIO (click-to-WhatsApp) o
+  //     al FORMULARIO (instant form), con prefijo para que no se lean como
+  //     campañas. Son otro nivel de la jerarquía de Meta, no la campaña.
+  {
+    assert.equal(
+      campaignOf(opp({ sessionSource: "Paid Social", adName: "Lotes Industriales" })),
+      `${AD_LABEL_PREFIX}Lotes Industriales`,
+    );
+    assert.equal(
+      campaignOf(opp({ sessionSource: "Paid Social", leadFormName: "Cellarium 1.0-copy" })),
+      `${FORM_LABEL_PREFIX}Cellarium 1.0-copy`,
+    );
+    // La campaña manda sobre el anuncio; el anuncio sobre el formulario.
+    assert.equal(
+      campaignOf(opp({ campaignName: "Campaña X", adName: "Anuncio Y", leadFormName: "Form Z" })),
+      "Campaña X",
+    );
+    assert.equal(campaignOf(opp({ adName: "Anuncio Y", leadFormName: "Form Z" })), `${AD_LABEL_PREFIX}Anuncio Y`);
+    // Un anuncio o form en blanco no cuenta: sigue a la centinela.
+    assert.equal(campaignOf(opp({ sessionSource: "Paid Social", adName: "  ", leadFormName: "" })), NO_CAMPAIGN_BUCKETS.paid);
+    // No son cubetas centinela: no se tiñen ni se apilan al final.
+    assert.ok(!isNoCampaign(`${AD_LABEL_PREFIX}Lotes Industriales`));
+    assert.ok(!isNoCampaign(`${FORM_LABEL_PREFIX}Cellarium 1.0-copy`));
   }
 
   console.log("✅ lib/cellarium-rules.ts — all assertions passed");
