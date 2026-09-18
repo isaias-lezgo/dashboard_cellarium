@@ -31,7 +31,7 @@ import { KpiStrip } from "./kpi-strip"
  * (Ventas ∪ Leads Perdidos). El orden es el que pidió dirección: la franja de
  * KPIs, sin atención, campañas, embudo, y los motivos de pérdida hasta abajo.
  *
- * La prop surface se hereda del panel de VAEO a propósito: `app/page.tsx`
+ * La prop surface se hereda del panel compartido a propósito: `app/page.tsx`
  * alimenta las slices filtradas por fecha más los sets `all*` sin filtrar como
  * tablas de lookup para los drill-downs. Un chart nuevo se monta sin plumbing.
  *

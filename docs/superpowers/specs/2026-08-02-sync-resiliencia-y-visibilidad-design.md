@@ -56,7 +56,7 @@ todo lo acumulado. Mismo defecto, distinta forma.
 
 ### Por qué muere una página — CONFIRMADO
 
-Medido contra la sub-cuenta real de VAEO (`scripts/diag-paged-sync.ts`, 2026-08-02).
+Medido contra una sub-cuenta real de gran volumen (`scripts/diag-paged-sync.ts`, 2026-08-02).
 **GHL corta la paginación por offset en 10,000 registros.** Las páginas 1-100 responden
 normal; de la 101 en adelante (offset ≥ 10,000) siempre devuelven el mismo 400:
 
@@ -272,7 +272,7 @@ No hay framework de tests en el repo y no se adopta uno. Siguiendo su convenció
 - `npx tsc --noEmit` — obligatorio. `next build` ignora errores de TS y este cambio
   modifica tipos de retorno usados en varios sitios, que es justo donde un error se
   escaparía sin ser visto.
-- Manejo real de la app contra la sub-cuenta de VAEO, que es donde el fallo se reproduce:
+- Manejo real de la app contra una sub-cuenta de gran volumen, que es donde el fallo se reproduce:
   confirmar que las oportunidades ahora llegan (o llegan parciales con banner), y leer el
   log `[GHL]` para identificar por fin cuál de los cuatro candidatos es la causa.
 

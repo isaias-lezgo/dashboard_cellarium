@@ -5,8 +5,7 @@
 
 ## Goal
 
-Serve several GHL sub-accounts (Yconia, Plaza Bosques, Muratta, Condesa, Vaeo,
-Grand Center, …) from **one deployment at one URL**, each with its own
+Serve several GHL sub-accounts from **one deployment at one URL**, each with its own
 `GHL_API_TOKEN` and `GHL_LOCATION_ID`.
 
 A client logs in with their own password; that password **is** their identity and

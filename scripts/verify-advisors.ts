@@ -22,17 +22,17 @@ import {
 
 let seq = 0;
 
-// Etapas reales del embudo VAEO, en orden.
-const STAGES = [
-  "Nuevo Lead",
-  "Lead en proceso",
-  "Lead Perfilado",
-  "Propuesta",
-  "Negociación",
-  "Ganado",
-  "Perdido",
-  "Cliente Futuro",
+// Etapas reales del pipeline Ventas de Cellarium, en orden. La tabla les suma
+// la columna única "Perdidas" (LOST_STAGE_LABEL) para lo que vive en Leads Perdidos.
+const VENTAS_STAGES = [
+  "Lead Generado",
+  "Contactado",
+  "Proceso Generado",
+  "Follow Up",
+  "Meeting/Cita",
+  "Cierre",
 ];
+const STAGES = [...VENTAS_STAGES, LOST_STAGE_LABEL];
 
 function opp(o: {
   advisor?: string;
@@ -42,14 +42,14 @@ function opp(o: {
   return {
     id: `o${++seq}`,
     name: `Opp ${seq}`,
-    pipelineId: "MiATYfkJWklaXqYc7hOr",
+    pipelineId: "ImCASVNiiPqszAbyXhmf",
     pipelineStageId: "stage-1",
     status: o.status ?? "open",
     createdAt: "2026-06-15T12:00:00.000Z",
     contactId: `c${seq}`,
     value: 0,
-    stage: o.stage ?? "Nuevo Lead",
-    pipelineName: "VAEO",
+    stage: o.stage ?? "Lead Generado",
+    pipelineName: "Ventas",
     assignedTo: o.advisor,
   };
 }
@@ -61,59 +61,57 @@ const rowFor = (m: ReturnType<typeof buildAdvisorMatrix>, advisor: string) => {
 };
 
 function main() {
-  // 1. El tipo de etapa se decide por NOMBRE, en las dos grafías de los embudos.
+  // 1. El tipo de etapa se decide por NOMBRE, en cualquier grafía.
   {
+    assert.equal(stageKind("Cierre"), "ganado");
     assert.equal(stageKind("Ganado"), "ganado");
     assert.equal(stageKind("ganada"), "ganado");
-    assert.equal(stageKind("Perdido"), "perdido");
     assert.equal(stageKind("Closed Won"), "ganado");
-    assert.equal(stageKind("Negociación"), "abierto");
-    assert.equal(
-      stageKind("Cliente Futuro"),
-      "abierto",
-      "Cliente Futuro es cartera parada, no un desenlace"
-    );
+    assert.equal(stageKind(LOST_STAGE_LABEL), "perdido");
+    assert.equal(stageKind("Perdido"), "perdido");
+    assert.equal(stageKind("Meeting/Cita"), "abierto");
+    assert.equal(stageKind("Follow Up"), "abierto", "Follow Up es cartera en juego, no un desenlace");
   }
 
   // 2. Las columnas salen del embudo, no de los datos: una etapa sin un solo
   //    registro sigue apareciendo, que es justo el dato que se quiere ver.
   {
-    const m = buildAdvisorMatrix([opp({ advisor: "Zulema Silva" })], STAGES);
+    const m = buildAdvisorMatrix([opp({ advisor: "Carla Moreno" })], STAGES);
     assert.deepEqual(m.stages, STAGES);
-    assert.equal(m.totals.stages["Negociación"].count, 0, "columna vacía, pero presente");
+    assert.equal(m.totals.stages["Meeting/Cita"].count, 0, "columna vacía, pero presente");
   }
 
   // 3. Una etapa que traen los datos y el embudo ya no declara NO se pierde:
   //    se agrega como columna extra al final.
   {
     const m = buildAdvisorMatrix(
-      [opp({ advisor: "Diana Arbelaez", stage: "Etapa Retirada" })],
+      [opp({ advisor: "Roberto Mendoza", stage: "Etapa Retirada" })],
       STAGES
     );
     assert.deepEqual(m.stages.slice(-1), ["Etapa Retirada"]);
     assert.equal(m.totals.total, 1, "el registro sigue contando en el total");
-    assert.equal(rowFor(m, "Diana Arbelaez").stages["Etapa Retirada"].count, 1);
+    assert.equal(rowFor(m, "Roberto Mendoza").stages["Etapa Retirada"].count, 1);
   }
 
   // 3b. Etapa vacía o solo espacios cae en "Otra etapa" en vez de desaparecer.
   {
-    const m = buildAdvisorMatrix([opp({ advisor: "Diana Arbelaez", stage: "   " })], STAGES);
+    const m = buildAdvisorMatrix([opp({ advisor: "Roberto Mendoza", stage: "   " })], STAGES);
     assert.ok(m.stages.includes(OTHER_STAGE_LABEL));
-    assert.equal(rowFor(m, "Diana Arbelaez").stages[OTHER_STAGE_LABEL].count, 1);
+    assert.equal(rowFor(m, "Roberto Mendoza").stages[OTHER_STAGE_LABEL].count, 1);
   }
 
-  // 3c. La etapa se une sin importar mayúsculas ni espacios sobrantes — MESH
-  //     escribe "Lead perfilado" y VAEO "Lead Perfilado".
+  // 3c. La etapa se une sin importar mayúsculas ni espacios sobrantes — una
+  //     etapa renombrada a mano en GHL no debe partir la columna en dos.
   {
     const m = buildAdvisorMatrix(
       [
-        opp({ advisor: "Zulema Silva", stage: "lead perfilado" }),
-        opp({ advisor: "Zulema Silva", stage: " Lead Perfilado " }),
+        opp({ advisor: "Carla Moreno", stage: "proceso generado" }),
+        opp({ advisor: "Carla Moreno", stage: " Proceso Generado " }),
       ],
       STAGES
     );
     assert.equal(m.stages.length, STAGES.length, "no se inventó una columna nueva");
-    assert.equal(rowFor(m, "Zulema Silva").stages["Lead Perfilado"].count, 2);
+    assert.equal(rowFor(m, "Carla Moreno").stages["Proceso Generado"].count, 2);
   }
 
   // 4. Sin asesor: nunca se descarta, se rotula, y siempre va al final aunque sea
@@ -121,8 +119,8 @@ function main() {
   {
     const m = buildAdvisorMatrix(
       [
-        ...Array.from({ length: 5 }, () => opp({ advisor: undefined, stage: "Perdido", status: "lost" })),
-        opp({ advisor: "Zulema Silva" }),
+        ...Array.from({ length: 5 }, () => opp({ advisor: undefined, stage: LOST_STAGE_LABEL, status: "lost" })),
+        opp({ advisor: "Carla Moreno" }),
         opp({ advisor: "   " }),
       ],
       STAGES
@@ -131,7 +129,7 @@ function main() {
     assert.equal(last.advisor, NO_ADVISOR_LABEL);
     assert.equal(last.unassigned, true);
     assert.equal(last.total, 6, "sin campo y campo en blanco son lo mismo");
-    assert.equal(m.rows[0].advisor, "Zulema Silva", "Sin asesor no compite por el primer lugar");
+    assert.equal(m.rows[0].advisor, "Carla Moreno", "Sin asesor no compite por el primer lugar");
     assert.equal(m.totals.total, 7);
   }
 
@@ -140,13 +138,13 @@ function main() {
   {
     const m = buildAdvisorMatrix(
       [
-        ...Array.from({ length: 100 }, () => opp({ advisor: undefined, stage: "Perdido", status: "lost" })),
-        ...Array.from({ length: 4 }, () => opp({ advisor: "Zulema Silva", stage: "Perdido", status: "lost" })),
-        opp({ advisor: "Diana Arbelaez", stage: "Perdido", status: "lost" }),
+        ...Array.from({ length: 100 }, () => opp({ advisor: undefined, stage: LOST_STAGE_LABEL, status: "lost" })),
+        ...Array.from({ length: 4 }, () => opp({ advisor: "Carla Moreno", stage: LOST_STAGE_LABEL, status: "lost" })),
+        opp({ advisor: "Roberto Mendoza", stage: LOST_STAGE_LABEL, status: "lost" }),
       ],
       STAGES
     );
-    assert.equal(m.stageMax["Perdido"], 4, "el máximo es el del mayor asesor, no el de Sin asesor");
+    assert.equal(m.stageMax[LOST_STAGE_LABEL], 4, "el máximo es el del mayor asesor, no el de Sin asesor");
   }
 
   // 6. Estatus: manda isWonOpp(), no el status crudo, y por eso la barra puede
@@ -154,26 +152,26 @@ function main() {
   {
     const m = buildAdvisorMatrix(
       [
-        opp({ advisor: "Zulema Silva", stage: "Ganado", status: "open" }),
-        opp({ advisor: "Zulema Silva", stage: "Perdido", status: "open" }),
-        opp({ advisor: "Zulema Silva", stage: "Cliente Futuro", status: "lost" }),
-        opp({ advisor: "Zulema Silva", stage: "Propuesta", status: "open" }),
+        opp({ advisor: "Carla Moreno", stage: "Cierre", status: "open" }),
+        opp({ advisor: "Carla Moreno", stage: LOST_STAGE_LABEL, status: "open" }),
+        opp({ advisor: "Carla Moreno", stage: "Follow Up", status: "lost" }),
+        opp({ advisor: "Carla Moreno", stage: "Meeting/Cita", status: "open" }),
       ],
       STAGES
     );
-    const r = rowFor(m, "Zulema Silva");
-    assert.equal(r.stages["Ganado"].count, 1);
-    assert.equal(r.status.ganada.count, 1, "etapa Ganado con status open cuenta como ganada");
+    const r = rowFor(m, "Carla Moreno");
+    assert.equal(r.stages["Cierre"].count, 1);
+    assert.equal(r.status.ganada.count, 1, "etapa Cierre con status open cuenta como ganada");
     assert.equal(
       r.status.perdida.count,
       1,
-      "solo el status lost es pérdida: la etapa Perdido con status open sigue abierta"
+      "solo el status lost es pérdida: la columna Perdidas con status open sigue abierta"
     );
     assert.equal(r.status.abierta.count, 2);
     assert.equal(
-      r.stages["Perdido"].count,
+      r.stages[LOST_STAGE_LABEL].count,
       1,
-      "la columna Perdido cuenta por etapa aunque el estatus diga otra cosa"
+      "la columna Perdidas cuenta por etapa aunque el estatus diga otra cosa"
     );
     assert.equal(r.winRate, 25, "% ganadas es sobre el total de la fila, igual que el chart de tasa");
   }
@@ -183,14 +181,14 @@ function main() {
   {
     const m = buildAdvisorMatrix(
       [
-        opp({ advisor: "Zulema Silva", stage: "Propuesta" }),
-        opp({ advisor: "Diana Arbelaez", stage: "Propuesta" }),
-        opp({ advisor: "Dariana Turrubiates", stage: "Ganado", status: "won" }),
+        opp({ advisor: "Carla Moreno", stage: "Follow Up" }),
+        opp({ advisor: "Roberto Mendoza", stage: "Follow Up" }),
+        opp({ advisor: "Francisco Maza", stage: "Cierre", status: "won" }),
       ],
       STAGES
     );
-    assert.equal(m.totals.stages["Propuesta"].count, 2);
-    assert.equal(m.totals.stages["Propuesta"].oppIds.length, 2);
+    assert.equal(m.totals.stages["Follow Up"].count, 2);
+    assert.equal(m.totals.stages["Follow Up"].oppIds.length, 2);
     assert.equal(m.totals.total, 3);
     assert.equal(
       m.totals.total,
@@ -205,11 +203,11 @@ function main() {
 
   // 8. Los ids viajan con la celda — es lo que abre el drill-down.
   {
-    const a = opp({ advisor: "Diana Arbelaez", stage: "Negociación" });
+    const a = opp({ advisor: "Roberto Mendoza", stage: "Meeting/Cita" });
     const m = buildAdvisorMatrix([a], STAGES);
-    assert.deepEqual(rowFor(m, "Diana Arbelaez").stages["Negociación"].oppIds, [a.id]);
-    assert.deepEqual(rowFor(m, "Diana Arbelaez").status.abierta.oppIds, [a.id]);
-    assert.deepEqual(rowFor(m, "Diana Arbelaez").oppIds, [a.id]);
+    assert.deepEqual(rowFor(m, "Roberto Mendoza").stages["Meeting/Cita"].oppIds, [a.id]);
+    assert.deepEqual(rowFor(m, "Roberto Mendoza").status.abierta.oppIds, [a.id]);
+    assert.deepEqual(rowFor(m, "Roberto Mendoza").oppIds, [a.id]);
   }
 
   // 9. Empate de volumen: desempate alfabético, para que el orden sea estable
@@ -217,16 +215,16 @@ function main() {
   {
     const m = buildAdvisorMatrix(
       [
-        opp({ advisor: "Zulema Silva" }),
-        opp({ advisor: "Dariana Turrubiates" }),
-        opp({ advisor: "Diana Arbelaez" }),
+        opp({ advisor: "Roberto Mendoza" }),
+        opp({ advisor: "Carla Moreno" }),
+        opp({ advisor: "Francisco Maza" }),
       ],
       STAGES
     );
     assert.deepEqual(m.rows.map((r) => r.advisor), [
-      "Dariana Turrubiates",
-      "Diana Arbelaez",
-      "Zulema Silva",
+      "Carla Moreno",
+      "Francisco Maza",
+      "Roberto Mendoza",
     ]);
   }
 
@@ -234,10 +232,10 @@ function main() {
   //     hardcodeado solo de respaldo — misma regla que resolvePipelineId().
   {
     const pipelines: Pipeline[] = [
-      { id: "otro-id-cualquiera", name: "ventas", stages: STAGES },
+      { id: "otro-id-cualquiera", name: "ventas", stages: VENTAS_STAGES },
       { id: "QaCg8OLw1hiQPs2dhsAA", name: "Leads Perdidos", stages: ["Equivocado", "Otro"] },
     ];
-    assert.deepEqual(panelStageOrder(pipelines, "cellarium"), STAGES, "gana el match por nombre, y son las etapas de VENTAS");
+    assert.deepEqual(panelStageOrder(pipelines, "cellarium"), VENTAS_STAGES, "gana el match por nombre, y son las etapas de VENTAS");
     assert.deepEqual(panelStageOrder(undefined, "cellarium"), [], "sin embudos, las columnas salen de los datos");
   }
 

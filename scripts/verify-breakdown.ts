@@ -36,8 +36,8 @@ function opp(o: {
     createdAt: o.createdAt ?? "2026-06-15T12:00:00.000Z",
     contactId: `c${seq}`,
     value: 0,
-    stage: o.stage ?? "Nuevo Lead",
-    pipelineName: "VAEO",
+    stage: o.stage ?? "Lead Generado",
+    pipelineName: "Ventas",
     customFieldsResolved: o.fields,
   };
 }
@@ -65,7 +65,7 @@ function main() {
     const rows = buildStatusByMonth([
       won,
       opp({ createdAt: "2026-04-02T12:00:00.000Z", status: "lost" }),
-      opp({ createdAt: "2026-04-20T12:00:00.000Z", status: "open", stage: "Propuesta" }),
+      opp({ createdAt: "2026-04-20T12:00:00.000Z", status: "open", stage: "Follow Up" }),
       opp({ createdAt: "" }),
       opp({ createdAt: "no es una fecha" }),
     ]);

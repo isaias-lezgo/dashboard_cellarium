@@ -10,10 +10,10 @@ import { resolvePipelineId, type PanelId } from "./panel-scope"
 import { WON_STAGE_PATTERN } from "./opportunity-status"
 
 /**
- * Fila de las oportunidades que nadie tiene asignadas. NO se descarta: en el
- * embudo VAEO son más de mil registros, casi todos ya perdidos, y esconderlos
- * haría que la matriz sumara mucho menos que el total del panel sin explicar por
- * qué. Se muestra siempre al final y en gris — no es un asesor, es una fuga.
+ * Fila de las oportunidades que nadie tiene asignadas. NO se descarta: en
+ * Cellarium son 146 registros (2026-09-18), y esconderlos haría que la matriz
+ * sumara menos que el total del panel sin explicar por qué. Se muestra siempre
+ * al final y en gris — no es un asesor, es una fuga.
  */
 export const NO_ADVISOR_LABEL = "Sin asesor"
 

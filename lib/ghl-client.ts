@@ -772,11 +772,10 @@ async function fetchTaskPage(filters: {
 }
 
 /**
- * Freno de emergencia por ESTADO, no presupuesto. Medido en la sub-cuenta de
- * Grupo VAEO (2026-08-07): 138 pendientes y 1,154 completadas. Con el tope
- * anterior de 500 se descartaban ~654 completadas en cada sync, en silencio, y
- * el resumen que el asistente de IA arma en lib/ai-context.ts calculaba la tasa
- * de completado sobre esa muestra sesgada: reportaba ~78 % contra un 89 % real.
+ * Freno de emergencia por ESTADO, no presupuesto. En otra sub-cuenta, con un
+ * tope de 500, se descartaban cientos de tareas completadas en cada sync, en
+ * silencio, y el resumen que el asistente de IA arma en lib/ai-context.ts
+ * calculaba la tasa de completado sobre esa muestra sesgada.
  *
  * 5,000 por estado deja años de holgura sobre el volumen actual y sigue
  * acotando una cuenta desbocada. Si algún día se alcanza, ahora se avisa.

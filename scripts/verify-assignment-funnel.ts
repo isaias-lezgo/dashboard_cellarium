@@ -28,14 +28,14 @@ function opp(o: {
   return {
     id: `o${++seq}`,
     name: `Opp ${seq}`,
-    pipelineId: "MiATYfkJWklaXqYc7hOr",
+    pipelineId: "ImCASVNiiPqszAbyXhmf",
     pipelineStageId: "stage-1",
     status: o.status ?? "open",
     createdAt: "createdAt" in o ? (o.createdAt as string) : "2026-06-15T12:00:00.000Z",
     contactId: `c${seq}`,
     value: 0,
-    stage: o.stage ?? "Nuevo Lead",
-    pipelineName: "VAEO",
+    stage: o.stage ?? "Lead Generado",
+    pipelineName: "Ventas",
     assignedTo: o.advisor,
   };
 }
@@ -52,7 +52,7 @@ function main() {
     assert.equal(isUnassigned(opp({})), true);
     assert.equal(isUnassigned(opp({ advisor: "" })), true);
     assert.equal(isUnassigned(opp({ advisor: "   " })), true, "espacios no son un asesor");
-    assert.equal(isUnassigned(opp({ advisor: "Zulema" })), false);
+    assert.equal(isUnassigned(opp({ advisor: "Carla" })), false);
   }
 
   // 2. Las asignadas NO entran al apilado, pero SÍ al denominador. Esta es la
@@ -61,8 +61,8 @@ function main() {
     const rows = buildUnassignedByMonth([
       opp({ createdAt: "2026-07-02T10:00:00.000Z" }),
       opp({ createdAt: "2026-07-03T10:00:00.000Z", status: "lost" }),
-      opp({ createdAt: "2026-07-04T10:00:00.000Z", advisor: "Zulema", status: "lost" }),
-      opp({ createdAt: "2026-07-05T10:00:00.000Z", advisor: "Diana", stage: "Ganado" }),
+      opp({ createdAt: "2026-07-04T10:00:00.000Z", advisor: "Carla", status: "lost" }),
+      opp({ createdAt: "2026-07-05T10:00:00.000Z", advisor: "Roberto", stage: "Cierre" }),
     ]);
     const jul = rowFor(rows, "2026-07");
     assert.equal(jul.total, 2, "solo las huérfanas llegan a la barra");
@@ -70,7 +70,7 @@ function main() {
     assert.equal(Math.round(jul.pctSinAsesor), 50);
     assert.equal(jul.abierta, 1);
     assert.equal(jul.perdida, 1);
-    assert.equal(jul.ganada, 0, "la ganada era de Diana, no huérfana");
+    assert.equal(jul.ganada, 0, "la ganada era de Roberto, no huérfana");
 
     const suma = STATUS_BUCKETS.reduce((n, b) => n + jul[b], 0);
     assert.equal(suma, jul.total, "las cubetas suman la altura de la barra");
@@ -81,7 +81,7 @@ function main() {
   {
     const rows = buildUnassignedByMonth([
       opp({ createdAt: "2026-05-10T10:00:00.000Z" }),
-      opp({ createdAt: "2026-06-10T10:00:00.000Z", advisor: "Zulema" }),
+      opp({ createdAt: "2026-06-10T10:00:00.000Z", advisor: "Carla" }),
       opp({ createdAt: "2026-07-10T10:00:00.000Z" }),
     ]);
     const jun = rowFor(rows, "2026-06");
@@ -96,9 +96,9 @@ function main() {
     const huerfanas = [
       opp({ createdAt: "2026-07-02T10:00:00.000Z" }),
       opp({ createdAt: "2026-07-03T10:00:00.000Z", status: "lost" }),
-      opp({ createdAt: "2026-07-04T10:00:00.000Z", stage: "Ganado" }),
+      opp({ createdAt: "2026-07-04T10:00:00.000Z", stage: "Cierre" }),
     ];
-    const asignada = opp({ createdAt: "2026-07-05T10:00:00.000Z", advisor: "Zulema" });
+    const asignada = opp({ createdAt: "2026-07-05T10:00:00.000Z", advisor: "Carla" });
     const rows = buildUnassignedByMonth([...huerfanas, asignada]);
     const jul = rowFor(rows, "2026-07");
     const ids = STATUS_BUCKETS.flatMap((b) => jul.ids[b]);
@@ -113,7 +113,7 @@ function main() {
   // 5. Una huérfana ganada por etapa (sin status "won") cuenta como ganada — la
   //    misma regla que isWonOpp() aplica en todo el panel.
   {
-    const rows = buildUnassignedByMonth([opp({ createdAt: "2026-07-02T10:00:00.000Z", stage: "Ganado" })]);
+    const rows = buildUnassignedByMonth([opp({ createdAt: "2026-07-02T10:00:00.000Z", stage: "Cierre" })]);
     assert.equal(rowFor(rows, "2026-07").ganada, 1);
   }
 
@@ -151,7 +151,7 @@ function main() {
     // Y en cuanto aparece una ganada huérfana, la serie entra sola.
     const conGanada = buildUnassignedByMonth([
       opp({ createdAt: "2026-07-02T10:00:00.000Z", status: "lost" }),
-      opp({ createdAt: "2026-07-03T10:00:00.000Z", stage: "Ganado" }),
+      opp({ createdAt: "2026-07-03T10:00:00.000Z", stage: "Cierre" }),
     ]);
     assert.deepEqual(activeBuckets(conGanada), ["ganada", "perdida"]);
 
@@ -164,8 +164,8 @@ function main() {
       opp({ createdAt: "2026-07-02T10:00:00.000Z", status: "lost" }),
       opp({ createdAt: "2026-07-03T10:00:00.000Z", status: "lost" }),
       opp({ createdAt: "2026-07-04T10:00:00.000Z" }),
-      opp({ createdAt: "2026-07-05T10:00:00.000Z", advisor: "Zulema" }),
-      opp({ createdAt: "2026-07-06T10:00:00.000Z", advisor: "Diana", stage: "Ganado" }),
+      opp({ createdAt: "2026-07-05T10:00:00.000Z", advisor: "Carla" }),
+      opp({ createdAt: "2026-07-06T10:00:00.000Z", advisor: "Roberto", stage: "Cierre" }),
     ]);
     const s = summarizeUnassigned(rows);
     assert.equal(s.total, 3, "huérfanas");
@@ -185,7 +185,7 @@ function main() {
 
     // Un periodo con leads pero sin huérfanos: 0%, no división por cero.
     const sanos = summarizeUnassigned(
-      buildUnassignedByMonth([opp({ createdAt: "2026-07-02T10:00:00.000Z", advisor: "Zulema" })])
+      buildUnassignedByMonth([opp({ createdAt: "2026-07-02T10:00:00.000Z", advisor: "Carla" })])
     );
     assert.equal(sanos.total, 0);
     assert.equal(sanos.grandTotal, 1);

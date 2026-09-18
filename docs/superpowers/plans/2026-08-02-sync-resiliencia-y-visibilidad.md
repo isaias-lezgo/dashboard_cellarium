@@ -663,7 +663,7 @@ Esperado: sin errores de tipos, aserciones pasan.
 pnpm dev
 ```
 
-Abrir `localhost:3000`, entrar con la contraseña de VAEO, y confirmar en la consola del servidor que no hay errores nuevos y que los tres datasets llegan con conteos plausibles. Si las oportunidades vuelven a fallar, **anotar el mensaje `[GHL]` completo** — es el dato que identifica cuál de los cuatro candidatos del spec es la causa.
+Abrir `localhost:3000`, entrar con la contraseña del cliente, y confirmar en la consola del servidor que no hay errores nuevos y que los tres datasets llegan con conteos plausibles. Si las oportunidades vuelven a fallar, **anotar el mensaje `[GHL]` completo** — es el dato que identifica cuál de los cuatro candidatos del spec es la causa.
 
 - [ ] **Step 9: Commit**
 
@@ -1538,7 +1538,7 @@ Revisar el diff completo de `app/api/dashboard/route.ts` en busca de los bloques
 pnpm dev
 ```
 
-Entrar a `localhost:3000` con la contraseña de VAEO y confirmar, apuntando los resultados:
+Entrar a `localhost:3000` con la contraseña del cliente y confirmar, apuntando los resultados:
 - las oportunidades cargan con un conteo plausible (no 0);
 - si algún dataset queda parcial, sale el banner con números correctos;
 - el contador `m:ss` avanza durante la carga;
@@ -1589,7 +1589,7 @@ mostró que los fallos no son timeouts ni 429, sino un **400 determinista**:
 registros. Ningún timeout, por largo que sea, cambia eso.
 
 La corrección real —migrar `getAllOpportunities` a cursor— se implementó dentro de la
-Task 2. Verificada en Grupo VAEO: 11,793 de 11,793 oportunidades, 14,085 de 14,085
+Task 2. Verificada en una sub-cuenta de gran volumen: 11,793 de 11,793 oportunidades, 14,085 de 14,085
 contactos, cero páginas faltantes.
 
 ---

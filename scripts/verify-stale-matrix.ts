@@ -38,14 +38,14 @@ function opp(o: {
   return {
     id: `o${seq}`,
     name: `Opp ${seq}`,
-    pipelineId: "MiATYfkJWklaXqYc7hOr",
+    pipelineId: "ImCASVNiiPqszAbyXhmf",
     pipelineStageId: "stage-1",
     status: o.status ?? "open",
     createdAt: daysAgo(o.createdDaysAgo ?? 0),
     contactId: o.contactId ?? `c${seq}`,
     value: 0,
-    stage: o.stage ?? "Lead en proceso",
-    pipelineName: "VAEO",
+    stage: o.stage ?? "Contactado",
+    pipelineName: "Ventas",
     lastStageChangeAt: o.movedDaysAgo === undefined ? undefined : daysAgo(o.movedDaysAgo),
   };
 }
