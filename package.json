@@ -12,10 +12,8 @@
     "verify:limiter": "tsx scripts/verify-limiter.ts",
     "verify:attachments": "tsx scripts/verify-attachments.ts",
     "verify:paged": "tsx scripts/verify-paged-fetch.ts",
-    "verify:pivot": "tsx scripts/verify-sales-pivot.ts",
     "verify:breakdown": "tsx scripts/verify-breakdown.ts",
     "verify:lost-matrix": "tsx scripts/verify-lost-matrix.ts",
-    "verify:lost-cross": "tsx scripts/verify-lost-cross.ts",
     "verify:advisors": "tsx scripts/verify-advisors.ts",
     "verify:filters": "tsx scripts/verify-panel-filters.ts",
     "verify:task-backlog": "tsx scripts/verify-task-backlog.ts",
@@ -23,6 +21,7 @@
     "verify:assignment": "tsx scripts/verify-assignment-funnel.ts",
     "verify:sync-store": "tsx --env-file-if-exists=.env.local scripts/verify-sync-store.ts",
     "verify:cellarium": "tsx scripts/verify-cellarium.ts",
+    "verify:month-series": "tsx scripts/verify-month-series.ts",
     "db:migrate": "tsx --env-file-if-exists=.env.local scripts/db-migrate.ts",
     "add-client": "tsx scripts/add-client.ts"
   },

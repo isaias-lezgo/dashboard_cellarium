@@ -4,37 +4,25 @@ import { useState, useEffect, useMemo } from "react"
 import Image from "next/image"
 import { useTheme } from "next-themes"
 import { AnimatePresence } from "framer-motion"
-import { VaeoDashboard } from "@/components/dashboard/vaeo-dashboard"
+import { CellariumDashboard } from "@/components/dashboard/cellarium-dashboard"
 import { DateRangeFilter } from "@/components/dashboard/date-range-filter"
 import { filterByDateRange, resolveDateRange, type DateFilter } from "@/lib/date-range"
-import { applyHubspotFilter, isHubspotImport } from "@/lib/hubspot-import"
-import { HubspotImportToggle } from "@/components/dashboard/hubspot-import-toggle"
 import {
   ActiveFiltersPill,
   MultiSelectFilter,
   type MultiSelectOption,
 } from "@/components/dashboard/multi-select-filter"
 import {
-  buildCategoryOptions,
-  withPinnedSelection,
-  type CategoryOption,
-} from "@/lib/category-filter"
-import { NO_VALUE_KEY, NO_VALUE_LABEL } from "@/lib/opportunity-breakdown"
-import { scopeOpportunities } from "@/lib/panel-scope"
-import {
   activeFilterCount,
   ADVISORS,
   advisorKeyOf,
   applyPanelFilters,
-  collectSucursales,
+  campaignOptions,
   EMPTY_PANEL_FILTERS,
-  sucursalOf,
   type PanelFilters,
 } from "@/lib/panel-filters"
-import { NO_SUCURSAL } from "@/lib/sales-pivot"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { MeshDashboard } from "@/components/dashboard/mesh-dashboard"
 import { ConversationsChat } from "@/components/dashboard/conversations-chat"
 import { LoadingScreen } from "@/components/dashboard/loading-screen"
 import { SyncWarningBanner } from "@/components/dashboard/sync-warning-banner"
@@ -42,12 +30,9 @@ import { useDashboardData } from "@/hooks/use-dashboard-data"
 import { useConversationsData } from "@/hooks/use-conversations-data"
 import { useConversationActivity } from "@/hooks/use-conversation-activity"
 import {
-  Building2,
-  MapPin,
   Megaphone,
-  MessageSquare,
   UserRound,
-  Network,
+  Warehouse,
   RefreshCw,
   Loader2,
   AlertCircle,
@@ -63,35 +48,14 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
-// The two business lines of Grupo VAEO, one panel each, plus the AI assistant.
-type DashboardTab = "vaeo" | "mesh" | "conversations"
+// Un solo negocio, un solo panel, más el asistente.
+type DashboardTab = "cellarium" | "conversations"
 
 // Browser-tab title per view. The app is a single route, so the title is set
 // imperatively — `metadata` in layout.tsx can only give one static fallback.
 const TAB_TITLES: Record<DashboardTab, string> = {
-  vaeo: "VAEO - Lezgo Suite CRM",
-  mesh: "MESH - Lezgo Suite CRM",
+  cellarium: "Cellarium - Lezgo Suite CRM",
   conversations: "Asistente IA - Lezgo Suite CRM",
-}
-
-/**
- * De opción de categoría a fila del menú. El aviso de variante es lo único que
- * se compone aquí: el módulo cuenta las grafías, la UI decide cómo se lee.
- */
-function toMenuOptions(
-  options: CategoryOption[],
-  selected: string[]
-): MultiSelectOption[] {
-  return withPinnedSelection(options, selected).map((o) => ({
-    value: o.value,
-    label: o.label,
-    count: o.count,
-    muted: o.muted,
-    variantHint:
-      o.variantCount > 1
-        ? `${o.variantCount} grafías distintas de este valor — probable error de captura en el CRM`
-        : undefined,
-  }))
 }
 
 /**
@@ -118,7 +82,7 @@ function relativeAge(fetchedAt: string, _tick: number): string {
 export default function DashboardPage() {
   const { resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
-  const [activeTab, setActiveTab] = useState<DashboardTab>("vaeo")
+  const [activeTab, setActiveTab] = useState<DashboardTab>("cellarium")
   // El texto "Actualizado hace X" es relativo, así que tiene que re-renderizarse
   // solo; nada más en la página cambia para obligarlo.
   const [nowTick, setNowTick] = useState(0)
@@ -158,89 +122,29 @@ export default function DashboardPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>({ preset: "all" })
   const dateRange = useMemo(() => resolveDateRange(dateFilter), [dateFilter])
 
-  // Panel-wide scope toggle, OFF by default: the HubSpot migration stamped its
-  // own bulk close date on every deal it created, so including them piles ~76%
-  // of the won opportunities onto the month the migration ran. Applied here, at
-  // the source, so BOTH the date-filtered slices and the unfiltered `all*`
-  // lookup sets agree — a drill-down must never surface a record the charts are
-  // excluding. The AI assistant is deliberately left out (it always reasons over
-  // the full dataset), same as the date filter.
-  const [includeHubspot, setIncludeHubspot] = useState(false)
-  const hubspotScoped = useMemo(
-    () => applyHubspotFilter(data?.opportunities ?? [], includeHubspot),
-    [data?.opportunities, includeHubspot]
-  )
-  const hubspotImportCount = useMemo(
-    () => (data?.opportunities ?? []).filter(isHubspotImport).length,
-    [data?.opportunities]
-  )
-
-  // Los otros dos filtros de alcance: sucursal y asesor. Se aplican aquí, sobre
-  // el mismo set y antes del corte por fecha, por la misma razón que el de
-  // HubSpot: las slices filtradas y los sets `all*` que resuelven los
-  // drill-downs tienen que ver el mismo universo. Ver lib/panel-filters.ts.
+  // Los dos filtros de alcance: asesor y campaña. Se aplican aquí, sobre el set
+  // crudo y antes del corte por fecha: las slices filtradas y los sets `all*`
+  // que resuelven los drill-downs tienen que ver el mismo universo.
   const [panelFilters, setPanelFilters] = useState<PanelFilters>(EMPTY_PANEL_FILTERS)
+  const rawOpportunities = useMemo(() => data?.opportunities ?? [], [data?.opportunities])
   const scopedOpportunities = useMemo(
-    () => applyPanelFilters(hubspotScoped, panelFilters),
-    [hubspotScoped, panelFilters]
+    () => applyPanelFilters(rawOpportunities, panelFilters),
+    [rawOpportunities, panelFilters]
   )
 
   // Las opciones y sus conteos se calculan SIN los filtros de panel puestos: si
-  // se calcularan sobre el set ya filtrado, elegir una sucursal dejaría el menú
+  // se calcularan sobre el set ya filtrado, elegir una campaña dejaría el menú
   // con una sola opción y sin manera de agregar otra.
-  const sucursalOptions = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const o of hubspotScoped) {
-      const s = sucursalOf(o)
-      counts.set(s, (counts.get(s) ?? 0) + 1)
-    }
-    const named = collectSucursales(hubspotScoped).map((value) => ({
-      value,
-      label: value,
-      count: counts.get(value) ?? 0,
-    }))
-    const sinSucursal = counts.get(NO_SUCURSAL) ?? 0
-    // La cubeta vacía siempre al final y en gris: no es una sucursal, pero deja
-    // esos registros alcanzables desde la barra.
-    return sinSucursal > 0
-      ? [...named, { value: NO_SUCURSAL, label: NO_SUCURSAL, count: sinSucursal, muted: true }]
-      : named
-  }, [hubspotScoped])
-
   const asesorOptions = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const o of hubspotScoped) {
+    for (const o of rawOpportunities) {
       const key = advisorKeyOf(o)
       if (key) counts.set(key, (counts.get(key) ?? 0) + 1)
     }
-    return ADVISORS.map((a) => ({
-      value: a.key,
-      label: a.label,
-      count: counts.get(a.key) ?? 0,
-    }))
-  }, [hubspotScoped])
+    return ADVISORS.map((a) => ({ value: a.key, label: a.label, count: counts.get(a.key) ?? 0 }))
+  }, [rawOpportunities])
 
-  // Las opciones de origen y canal se acotan al pipeline de la pestaña activa y
-  // al rango de fechas —así los conteos hablan de lo que el panel está
-  // mostrando— pero NO a los filtros de panel: si se calcularan sobre el set ya
-  // filtrado, marcar "Meta" borraría del menú todo lo demás.
-  //
-  // Es una regla distinta de la de sucursal y asesor, que se calculan sobre el
-  // set completo. Está documentado en el spec como divergencia conocida.
-  const categoryBase = useMemo(() => {
-    if (activeTab === "conversations") return []
-    const scoped = scopeOpportunities(hubspotScoped, activeTab, data?.pipelines ?? [])
-    return filterByDateRange(scoped, (o) => o.createdAt, dateRange)
-  }, [hubspotScoped, activeTab, data?.pipelines, dateRange])
-
-  const origenOptions = useMemo(
-    () => toMenuOptions(buildCategoryOptions(categoryBase, "origen"), panelFilters.origen),
-    [categoryBase, panelFilters.origen]
-  )
-  const canalOptions = useMemo(
-    () => toMenuOptions(buildCategoryOptions(categoryBase, "canal"), panelFilters.canal),
-    [categoryBase, panelFilters.canal]
-  )
+  const campanaOptions = useMemo(() => campaignOptions(rawOpportunities), [rawOpportunities])
 
   // Human label of the active date filter, for the PDF report cover.
   const periodLabel = useMemo(() => {
@@ -259,18 +163,12 @@ export default function DashboardPage() {
 
     // El alcance del reporte incluye los filtros de la barra, no solo la fecha:
     // una portada que calla que el panel está recortado es una portada que miente.
-    const list = (values: string[]) =>
-      values.map((v) => (v === NO_VALUE_KEY ? NO_VALUE_LABEL : v)).join(", ")
     const parts = [base]
-    if (panelFilters.sucursales.length) parts.push(`Sucursal: ${list(panelFilters.sucursales)}`)
     if (panelFilters.asesores.length) {
-      const names = panelFilters.asesores.map(
-        (k) => ADVISORS.find((a) => a.key === k)?.label ?? k
-      )
+      const names = panelFilters.asesores.map((k) => ADVISORS.find((a) => a.key === k)?.label ?? k)
       parts.push(`Asesor: ${names.join(", ")}`)
     }
-    if (panelFilters.origen.length) parts.push(`Origen: ${list(panelFilters.origen)}`)
-    if (panelFilters.canal.length) parts.push(`Canal: ${list(panelFilters.canal)}`)
+    if (panelFilters.campanas.length) parts.push(`Campaña: ${panelFilters.campanas.join(", ")}`)
     return parts.join(" · ")
   }, [dateFilter.preset, dateRange, panelFilters])
 
@@ -457,8 +355,7 @@ export default function DashboardPage() {
         <div className="flex gap-6 sm:gap-8">
           {(
             [
-              { id: "vaeo" as const, label: "VAEO", icon: Building2, mark: "/vaeo-mark.png" },
-              { id: "mesh" as const, label: "MESH", icon: Network, mark: "/mesh-mark.png" },
+              { id: "cellarium" as const, label: "Cellarium", icon: Warehouse, mark: null },
               { id: "conversations" as const, label: "Asistente IA", icon: Sparkles, mark: null },
             ] as const
           ).map(({ id, label, icon: Icon, mark }) => {
@@ -505,14 +402,6 @@ export default function DashboardPage() {
           filters={
             <>
               <MultiSelectFilter
-                label="Sucursal"
-                icon={MapPin}
-                options={sucursalOptions}
-                selected={panelFilters.sucursales}
-                onChange={(sucursales) => setPanelFilters((f) => ({ ...f, sucursales }))}
-                emptyMessage="Ninguna oportunidad trae sucursal"
-              />
-              <MultiSelectFilter
                 label="Asesor"
                 icon={UserRound}
                 options={asesorOptions}
@@ -520,21 +409,12 @@ export default function DashboardPage() {
                 onChange={(asesores) => setPanelFilters((f) => ({ ...f, asesores }))}
               />
               <MultiSelectFilter
-                label="Origen de lead"
+                label="Campaña"
                 icon={Megaphone}
-                options={origenOptions}
-                selected={panelFilters.origen}
-                onChange={(origen) => setPanelFilters((f) => ({ ...f, origen }))}
-                emptyMessage="Sin valores en este periodo"
-                searchable
-              />
-              <MultiSelectFilter
-                label="Canal de contacto"
-                icon={MessageSquare}
-                options={canalOptions}
-                selected={panelFilters.canal}
-                onChange={(canal) => setPanelFilters((f) => ({ ...f, canal }))}
-                emptyMessage="Sin valores en este periodo"
+                options={campanaOptions}
+                selected={panelFilters.campanas}
+                onChange={(campanas) => setPanelFilters((f) => ({ ...f, campanas }))}
+                emptyMessage="Ninguna oportunidad trae campaña"
                 searchable
               />
               <ActiveFiltersPill
@@ -543,52 +423,15 @@ export default function DashboardPage() {
               />
             </>
           }
-          trailing={
-            <HubspotImportToggle
-              checked={includeHubspot}
-              onCheckedChange={setIncludeHubspot}
-              importedCount={hubspotImportCount}
-            />
-          }
         />
       )}
 
       {/* Dashboard Content */}
       <div className="flex-1 pt-2 pb-6">
-        {/* Both business-line panels get the identical prop surface: the
-            date-filtered slices for charts, plus the unfiltered `all*` sets as
-            lookup tables for drill-down joins. Keep them in sync as charts are
-            built out, so a chart can move between panels unchanged. */}
-        {activeTab === "vaeo" && (
-          <VaeoDashboard
-            opportunities={opportunities}
-            allOpportunities={scopedOpportunities}
-            contacts={contacts}
-            allContacts={data?.contacts ?? []}
-            pautas={pautas}
-            allPautas={data?.pautas ?? []}
-            pipelines={data?.pipelines ?? []}
-            tasks={tasks}
-            allTasks={data?.tasks ?? []}
-            unfilteredOpportunities={data?.opportunities ?? []}
-            conversationActivity={conversationActivity}
-            activityStatus={activityStatus}
-            activityProgress={activityProgress}
-            onRetryActivity={refreshActivity}
-            calls={calls}
-            messages={filteredMessages}
-            allMessages={messages}
-            appointments={appointments}
-            allAppointments={data?.appointments ?? []}
-            members={availableMembers}
-            locationId={data?.locationId ?? ""}
-            locationName={locationName ?? undefined}
-            periodLabel={periodLabel}
-            dateRange={dateRange}
-          />
-        )}
-        {activeTab === "mesh" && (
-          <MeshDashboard
+        {/* El panel recibe las slices filtradas por fecha para dibujar, más los
+            sets `all*` sin filtrar como tablas de lookup para los drill-downs. */}
+        {activeTab === "cellarium" && (
+          <CellariumDashboard
             opportunities={opportunities}
             allOpportunities={scopedOpportunities}
             contacts={contacts}
@@ -616,7 +459,7 @@ export default function DashboardPage() {
           />
         )}
         {/* Kept permanently mounted (hidden when inactive) so the AI chat
-            history survives switching to the VAEO/MESH tabs. */}
+            history survives switching to the Cellarium tab. */}
         {/* The AI assistant always sees the full (unfiltered) dataset — the
             date filter bar is hidden on this tab. */}
         <div className={cn(activeTab !== "conversations" && "hidden")}>
