@@ -12,7 +12,6 @@ import type {
   Pipeline,
   Task,
 } from "@/lib/types"
-import { CANAL_FIELDS, ORIGEN_FIELDS } from "@/lib/opportunity-breakdown"
 import { buildLostReasonMatrix, type LostMatrixCell } from "@/lib/lost-reason-matrix"
 import { PANEL_SCOPES, scopeOpportunities, type PanelId } from "@/lib/panel-scope"
 import { cn } from "@/lib/utils"
@@ -30,14 +29,6 @@ const pctFmt = new Intl.NumberFormat("es-MX", {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 })
-
-/** Las dos dimensiones que el switch alterna. */
-const DIMENSIONS = {
-  canal: { label: "Canal de Contacto", fieldNames: CANAL_FIELDS },
-  origen: { label: "Origen de Lead", fieldNames: ORIGEN_FIELDS },
-} as const
-
-type DimensionId = keyof typeof DIMENSIONS
 
 // BRAND_AMBER en componentes, para poder variar el alpha del sombreado.
 const HEAT_RGB = "245, 155, 27"
@@ -77,15 +68,10 @@ export interface LostReasonMatrixProps {
 }
 
 /**
- * "Motivos de perdido": el cruce de por qué se pierde contra por dónde llegó el
- * lead, con un switch entre las dos dimensiones de llegada.
- *
- * Es la pregunta que ni el gráfico de estado (cuántas se pierden) ni los
- * rankings de categoría (de dónde vienen) contestan por separado: un lead de
- * Meta que llega por DM no se pierde por lo mismo que uno que llenó el
- * formulario del sitio.
- *
- * Los dos paneles montan el mismo componente; solo cambia el embudo.
+ * "Motivos de pérdida": el cruce de por qué se pierde contra qué campaña trajo
+ * el lead. Es donde se ve que "Equivocado" se lleva ~70 % de las perdidas y de
+ * qué campaña vienen — la pregunta que ni el gráfico de estado (cuántas se
+ * pierden) ni el de campañas (cuántas trae cada una) contestan por separado.
  */
 export function LostReasonMatrix({
   panel,
@@ -101,20 +87,15 @@ export function LostReasonMatrix({
   messages = [],
   locationId = "",
 }: LostReasonMatrixProps) {
-  const [dimension, setDimension] = useState<DimensionId>("canal")
   const [expanded, setExpanded] = useState(false)
   const [drill, setDrill] = useState<DrillState>(DRILL_CLOSED)
   const scope = PANEL_SCOPES[panel]
-  const dim = DIMENSIONS[dimension]
 
   const scoped = useMemo(
     () => scopeOpportunities(opportunities, panel, pipelines),
     [opportunities, panel, pipelines]
   )
-  const matrix = useMemo(
-    () => buildLostReasonMatrix(scoped, dim.fieldNames),
-    [scoped, dim.fieldNames]
-  )
+  const matrix = useMemo(() => buildLostReasonMatrix(scoped), [scoped])
 
   // La fila de totales SIEMPRE suma la matriz completa, esté colapsada o no: el
   // botón dice cuántos motivos y cuántas oportunidades quedan ocultos para que
@@ -152,43 +133,20 @@ export function LostReasonMatrix({
   return (
     <DashboardCard>
       <ChartCardHeader
-        title="Motivos de perdido"
+        title="Motivos de pérdida"
         icon={TrendingDown}
         total={matrix.grandTotal}
         actions={
           <>
-            <div
-              role="group"
-              aria-label="Dimensión del cruce"
-              className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/40 p-0.5"
-            >
-              {(Object.keys(DIMENSIONS) as DimensionId[]).map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setDimension(id)}
-                  aria-pressed={dimension === id}
-                  className={cn(
-                    "rounded-full px-2.5 py-0.5 text-[11px] font-medium tracking-wide transition-colors",
-                    dimension === id
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {DIMENSIONS[id].label}
-                </button>
-              ))}
-            </div>
             <ScopePill
-              label="Perdidas y abandonadas"
+              label="Perdidas · por campaña"
               tooltip={
                 <>
-                  Motivo de pérdida de las oportunidades <strong>perdidas</strong> del embudo{" "}
-                  {scope.label}, cruzado contra su <strong>{dim.label}</strong>. Las
-                  abandonadas cuentan como pérdida, igual que en el gráfico de estado. Las
-                  pocas oportunidades con dos categorías capturadas en la misma celda suman
-                  en ambas columnas, así que la suma horizontal puede pasarse del{" "}
-                  <em>Total</em> de la fila —que es el conteo de oportunidades distintas.
+                  Motivo de pérdida de las oportunidades <strong>perdidas</strong> —las que
+                  viven en <strong>Leads Perdidos</strong>, donde la etapa es el motivo, más
+                  las marcadas perdidas o abandonadas en Ventas— cruzado contra la{" "}
+                  <strong>campaña</strong> de Meta que trajo el lead. Cada oportunidad cae en
+                  una sola campaña, así que la suma horizontal es el total de la fila.
                 </>
               }
             />
@@ -210,7 +168,7 @@ export function LostReasonMatrix({
                         "border-b border-r border-border px-3 py-2 text-left font-semibold"
                       )}
                     >
-                      Motivo de perdido
+                      Motivo de pérdida
                     </th>
                     {matrix.columns.map((col) => (
                       <th
@@ -273,7 +231,7 @@ export function LostReasonMatrix({
                         onClick={() =>
                           openDrill(
                             { count: row.total, oppIds: row.oppIds },
-                            `${row.label} — todas las categorías`
+                            `${row.label} — todas las campañas`
                           )
                         }
                         className="cursor-pointer border-b border-l border-border px-3 py-1.5 font-semibold hover:bg-muted/50"

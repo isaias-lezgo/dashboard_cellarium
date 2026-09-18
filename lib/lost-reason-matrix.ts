@@ -1,26 +1,20 @@
-// El cruce detrás de la tabla "Motivos de perdido": motivo × categoría, donde la
-// categoría es Canal de Contacto u Origen de Lead según el switch de la tarjeta.
+// El cruce detrás de la tabla "Motivos de pérdida": motivo × campaña.
 //
 // Puro y sin React para que scripts/verify-lost-matrix.ts lo pueda aseverar: un
 // cruce mal armado da una respuesta silenciosamente equivocada —una celda que
 // suma en la columna que no era se ve idéntica a una correcta.
 import type { Opportunity } from "./types"
-import {
-  buildCategoryBreakdown,
-  categoryKey,
-  mostFrequent,
-  NO_VALUE_LABEL,
-  statusBucket,
-} from "./opportunity-breakdown"
+import { campaignOf, lostReasonOf, NO_CAMPAIGN_LABEL, NO_REASON_LABEL } from "./cellarium-rules"
+import { categoryKey, mostFrequent, statusBucket } from "./opportunity-breakdown"
 
 /** Fila sin motivo capturado. Siempre va al final, aunque sea grande. */
-export const NO_REASON_LABEL = "Sin motivo"
+export { NO_REASON_LABEL }
 
 export interface LostMatrixColumn {
   /** Etiqueta de la categoría; es también la clave de React. */
   label: string
   total: number
-  /** true para la columna "Sin dato". */
+  /** true para la columna "Sin campaña". */
   missing: boolean
 }
 
@@ -62,59 +56,41 @@ const EMPTY: LostReasonMatrix = {
 }
 
 /**
- * Motivo de pérdida legible de una oportunidad, o null si no trae ninguno.
+ * Matriz motivo × campaña sobre las oportunidades PERDIDAS de `opps`.
  *
- * `lostReason` ya viene resuelto por la API (el `lostReasonId` nativo contra el
- * catálogo de la sub-cuenta, con caída a un custom field "Motivo de Perdido").
- * Aquí solo se recorta.
+ * "Perdida" es `statusBucket()` — vive en Leads Perdidos o trae lost/abandoned —
+ * la misma definición que la barra roja del gráfico de estado, para que los
+ * totales de las dos tarjetas cuadren. El motivo es `lostReasonOf()`: la etapa
+ * dentro de Leads Perdidos, el `lostReason` nativo en Ventas.
+ *
+ * La campaña es un solo valor por oportunidad, así que cada una cae en UNA
+ * columna y la suma horizontal de una fila es su total.
  */
-function reasonOf(opp: Opportunity): string | null {
-  const raw = opp.lostReason?.trim()
-  return raw ? raw : null
-}
-
-/**
- * Matriz motivo × categoría sobre las oportunidades PERDIDAS de `opps`.
- *
- * Las columnas salen de `buildCategoryBreakdown()`, no de una segunda
- * normalización propia: así la columna "WhatsApp" de esta tabla agrupa
- * exactamente las mismas oportunidades que la barra "WhatsApp" del gráfico de al
- * lado. Duplicar esa lógica es justo la clase de deriva que los módulos
- * compartidos existen para evitar.
- *
- * "Perdida" es `statusBucket()`, o sea `lost` o `abandoned` y nunca una que
- * `isWonOpp()` dé por ganada — la misma definición que la barra roja del gráfico
- * de estado, para que los totales de las dos tarjetas cuadren.
- *
- * Multi-valor: una oportunidad con dos categorías en la misma celda ("Meta,
- * Sitio Web") cuenta en AMBAS columnas, igual que en el ranking. Por eso el
- * `total` de una fila es su conteo de oportunidades distintas y puede ser menor
- * que la suma horizontal de sus celdas.
- */
-export function buildLostReasonMatrix(
-  opps: Opportunity[],
-  fieldNames: string[]
-): LostReasonMatrix {
+export function buildLostReasonMatrix(opps: Opportunity[]): LostReasonMatrix {
   const lost = opps.filter((o) => statusBucket(o) === "perdida")
   if (lost.length === 0) return EMPTY
 
-  // Columnas: el mismo ranking que dibuja el gráfico de categorías, que ya trae
-  // los ids de cada grupo y deja "Sin dato" al final.
-  const catRows = buildCategoryBreakdown(lost, fieldNames)
-  const columns: LostMatrixColumn[] = catRows.map((r) => ({
-    label: r.label,
-    total: r.count,
-    missing: r.label === NO_VALUE_LABEL,
+  // Columnas: campañas por volumen desc, "Sin campaña" al final.
+  const colCounts = new Map<string, number>()
+  const colIdsByLabel = new Map<string, string[]>()
+  for (const o of lost) {
+    const c = campaignOf(o)
+    colCounts.set(c, (colCounts.get(c) ?? 0) + 1)
+    const ids = colIdsByLabel.get(c) ?? []
+    ids.push(o.id)
+    colIdsByLabel.set(c, ids)
+  }
+  const colLabels = [...colCounts.keys()]
+    .filter((k) => k !== NO_CAMPAIGN_LABEL)
+    .sort((a, b) => colCounts.get(b)! - colCounts.get(a)! || a.localeCompare(b, "es"))
+  if (colCounts.has(NO_CAMPAIGN_LABEL)) colLabels.push(NO_CAMPAIGN_LABEL)
+  const columns: LostMatrixColumn[] = colLabels.map((label) => ({
+    label,
+    total: colCounts.get(label)!,
+    missing: label === NO_CAMPAIGN_LABEL,
   }))
-  // id de oportunidad → índices de columna en los que cae (puede ser más de uno).
-  const colsByOpp = new Map<string, number[]>()
-  catRows.forEach((r, i) => {
-    for (const id of r.oppIds) {
-      const at = colsByOpp.get(id)
-      if (at) at.push(i)
-      else colsByOpp.set(id, [i])
-    }
-  })
+  const colIndex = new Map(colLabels.map((l, i) => [l, i]))
+  const colByOpp = new Map(lost.map((o) => [o.id, colIndex.get(campaignOf(o))!]))
 
   // Filas: se agrupan por clave normalizada para que "No Contesta" y "No
   // contesta" no se partan en dos, y se muestra la grafía más frecuente.
@@ -124,33 +100,26 @@ export function buildLostReasonMatrix(
   }
   const groups = new Map<string, Group>()
   const noReason: string[] = []
-
-  for (const opp of lost) {
-    const reason = reasonOf(opp)
-    if (reason === null) {
-      noReason.push(opp.id)
-      continue
-    }
-    const key = categoryKey(reason)
+  for (const o of lost) {
+    const reason = lostReasonOf(o)
+    const key = reason === NO_REASON_LABEL ? "" : categoryKey(reason)
     if (key === "") {
-      noReason.push(opp.id)
+      noReason.push(o.id)
       continue
     }
     const g: Group = groups.get(key) ?? { spellings: new Map(), oppIds: [] }
     g.spellings.set(reason, (g.spellings.get(reason) ?? 0) + 1)
-    g.oppIds.push(opp.id)
+    g.oppIds.push(o.id)
     groups.set(key, g)
   }
 
   const pctOf = (n: number) => (n / lost.length) * 100
-
   const buildRow = (label: string, oppIds: string[], missing: boolean): LostMatrixRow => {
     const cells: LostMatrixCell[] = columns.map(() => ({ count: 0, oppIds: [] }))
     for (const id of oppIds) {
-      for (const i of colsByOpp.get(id) ?? []) {
-        cells[i].count += 1
-        cells[i].oppIds.push(id)
-      }
+      const i = colByOpp.get(id)!
+      cells[i].count += 1
+      cells[i].oppIds.push(id)
     }
     return { label, cells, total: oppIds.length, pct: pctOf(oppIds.length), oppIds, missing }
   }
@@ -158,18 +127,15 @@ export function buildLostReasonMatrix(
   const rows: LostMatrixRow[] = [...groups.values()]
     .map((g) => buildRow(mostFrequent(g.spellings), g.oppIds, false))
     .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label, "es"))
-
   if (noReason.length > 0) rows.push(buildRow(NO_REASON_LABEL, noReason, true))
 
-  const totals: LostMatrixCell[] = columns.map((c, i) => ({
+  const totals: LostMatrixCell[] = columns.map((c) => ({
     count: c.total,
-    oppIds: catRows[i].oppIds,
+    oppIds: colIdsByLabel.get(c.label) ?? [],
   }))
 
   let maxCell = 0
-  for (const row of rows) {
-    for (const cell of row.cells) if (cell.count > maxCell) maxCell = cell.count
-  }
+  for (const row of rows) for (const cell of row.cells) if (cell.count > maxCell) maxCell = cell.count
 
   return { columns, rows, totals, grandTotal: lost.length, maxCell }
 }

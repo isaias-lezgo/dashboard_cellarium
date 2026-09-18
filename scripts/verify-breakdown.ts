@@ -1,27 +1,20 @@
-// Verification for lib/opportunity-breakdown.ts — la agregación de los tres
-// gráficos "Oportunidades por estado / Origen de Lead / Canal de Contacto".
+// Verification for lib/opportunity-breakdown.ts — la agregación de
+// "Oportunidades por estado" y los helpers de mes y de grafía.
 // Correr: pnpm verify:breakdown
 //
 // Dos cosas justifican el script. Una: las cubetas de estado se apoyan en
-// isWonOpp(), y una regresión ahí mueve ventas de una barra a otra sin que nada
-// truene. Dos: el agrupamiento de categorías normaliza texto libre sucio
-// (`Walk-in` vs `Walk In`, `WHATSAPP` vs `WhatsApp`), y si la clave deja de unir
-// dos grafías el gráfico simplemente muestra dos barras chicas donde debía haber
-// una grande — invisible a ojo.
+// isLostOpp()/isWonOpp(), y una regresión ahí mueve leads de una barra a otra
+// sin que nada truene. Dos: categoryKey() normaliza texto libre sucio
+// (`No contesta` vs `NO CONTESTA`), y si deja de unir dos grafías la tabla de
+// motivos muestra dos filas chicas donde debía haber una grande.
 //
 // Envuelto en main() en vez de top-level await: este paquete es CJS.
 import assert from "node:assert/strict";
 import type { Opportunity } from "../lib/types";
 import {
-  buildCategoryBreakdown,
   buildStatusByMonth,
   categoryKey,
-  CANAL_FIELDS,
   NO_DATE_KEY,
-  NO_VALUE_KEY,
-  NO_VALUE_LABEL,
-  normalizeCategoryKey,
-  ORIGEN_FIELDS,
   statusBucket,
 } from "../lib/opportunity-breakdown";
 
@@ -48,12 +41,6 @@ function opp(o: {
     customFieldsResolved: o.fields,
   };
 }
-
-const rowFor = (rows: ReturnType<typeof buildCategoryBreakdown>, label: string) => {
-  const r = rows.find((x) => x.label === label);
-  assert.ok(r, `existe la fila "${label}" (hay: ${rows.map((x) => x.label).join(", ")})`);
-  return r!;
-};
 
 function main() {
   // 1. Cubetas de estado: perdida por pipeline o status, ganada por isWonOpp.
@@ -124,149 +111,9 @@ function main() {
     assert.notEqual(categoryKey("Meta"), categoryKey("Mailing"));
   }
 
-  // 3b. normalizeCategoryKey = categoryKey + los alias. Es la que consume
-  // lib/category-filter.ts para ordenar; si las dos se separan, las variantes
-  // dejan de salir juntas en el menú y el error de captura se vuelve invisible.
+  // 4. Conjunto vacío.
   {
-    assert.equal(normalizeCategoryKey("Walk-in"), normalizeCategoryKey("WALK IN"));
-    assert.equal(
-      normalizeCategoryKey("Inmobiliaria"),
-      "inmobiliario",
-      "el alias se aplica, no solo la clave"
-    );
-    assert.equal(normalizeCategoryKey("Correo InfoVAEO"), "correo info vaeo");
-    assert.equal(
-      normalizeCategoryKey("Meta"),
-      categoryKey("Meta"),
-      "sin alias, es exactamente categoryKey"
-    );
-    assert.notEqual(
-      NO_VALUE_KEY,
-      normalizeCategoryKey(NO_VALUE_LABEL),
-      "el centinela no colisiona con nada capturable"
-    );
-  }
-
-  // 4. Origen: agrupamiento, etiqueta canónica, alias y orden.
-  {
-    const rows = buildCategoryBreakdown(
-      [
-        opp({ fields: { "Origen de Lead": "Meta" } }),
-        opp({ fields: { "Origen de Lead": "Meta" } }),
-        opp({ fields: { "Origen de Lead": "Meta" } }),
-        opp({ fields: { "Origen de Lead": "Walk-in" } }),
-        opp({ fields: { "Origen de Lead": "Walk In" } }),
-        opp({ fields: { "Origen de Lead": "Inmobiliaria" } }),
-        opp({ fields: { "Origen de Lead": "Inmobiliario" } }),
-        opp({ fields: { "Origen de Lead": "activo seo" } }),
-      ],
-      ORIGEN_FIELDS
-    );
-
-    assert.equal(rowFor(rows, "Meta").count, 3);
-    assert.equal(rowFor(rows, "Walk In").count, 2, "Walk-in y Walk In son una sola fila");
-    assert.equal(
-      rowFor(rows, "Inmobiliario").count,
-      2,
-      "Inmobiliaria entra por alias explícito: la clave sola no las une"
-    );
-    assert.equal(
-      rowFor(rows, "Inmobiliario").key,
-      "inmobiliario",
-      "la fila lleva su clave, para atarla a las opciones del menú del filtro"
-    );
-    assert.equal(rowFor(rows, "Walk In").key, "walk in");
-    assert.equal(
-      rowFor(rows, "Activo SEO").count,
-      1,
-      "la etiqueta es la oficial del picklist, no la grafía capturada"
-    );
-    assert.deepEqual(
-      rows.map((r) => r.label),
-      ["Meta", "Inmobiliario", "Walk In", "Activo SEO"],
-      "orden descendente por conteo, desempate alfabético"
-    );
-    assert.equal(rowFor(rows, "Meta").pct, 37.5);
-  }
-
-  // 5. Valor desconocido: sobrevive con su grafía más frecuente.
-  {
-    const rows = buildCategoryBreakdown(
-      [
-        opp({ fields: { "Origen de Lead": "Podcast Nuevo" } }),
-        opp({ fields: { "Origen de Lead": "podcast nuevo" } }),
-        opp({ fields: { "Origen de Lead": "Podcast Nuevo" } }),
-      ],
-      ORIGEN_FIELDS
-    );
-    assert.deepEqual(rows.map((r) => r.label), ["Podcast Nuevo"]);
-    assert.equal(rows[0].count, 3, "una categoría nueva nunca se cae del gráfico");
-  }
-
-  // 6. Celda multivalor: cuenta en cada categoría que nombra.
-  {
-    const multi = opp({ fields: { "Origen de Lead": "Meta, Sitio Web" } });
-    const rows = buildCategoryBreakdown(
-      [multi, opp({ fields: { "Origen de Lead": "Meta" } })],
-      ORIGEN_FIELDS
-    );
-    assert.equal(rowFor(rows, "Meta").count, 2);
-    assert.equal(rowFor(rows, "Sitio Web").count, 1);
-    assert.ok(rowFor(rows, "Sitio Web").oppIds.includes(multi.id));
-    assert.ok(
-      rows.reduce((a, r) => a + r.pct, 0) > 100,
-      "los % pasan de 100 con multivalor; es a propósito y se explica en el tooltip"
-    );
-  }
-
-  // 6b. Un valor repetido dentro de la misma celda no cuenta doble.
-  {
-    const rows = buildCategoryBreakdown(
-      [opp({ fields: { "Origen de Lead": "Meta, meta" } })],
-      ORIGEN_FIELDS
-    );
-    assert.deepEqual(rows.map((r) => r.count), [1]);
-  }
-
-  // 7. Fallback al gemelo picklist solo cuando el campo de texto viene vacío.
-  {
-    const rows = buildCategoryBreakdown(
-      [
-        opp({ fields: { "Canal de Contacto": "WHATSAPP", "Canal del contacto": "Formulario" } }),
-        opp({ fields: { "Canal de Contacto": "   ", "Canal del contacto": "Formulario" } }),
-        opp({ fields: { "Canal del contacto": "Llamada" } }),
-      ],
-      CANAL_FIELDS
-    );
-    assert.equal(rowFor(rows, "WhatsApp").count, 1, "el campo de texto gana cuando tiene valor");
-    assert.equal(rowFor(rows, "Formulario").count, 1, "texto en blanco cae al picklist");
-    assert.equal(rowFor(rows, "Llamada").count, 1);
-    assert.equal(rows.length, 3, "nadie cayó en Sin dato");
-  }
-
-  // 8. Sin dato: nunca se descarta, y siempre va al final.
-  {
-    const rows = buildCategoryBreakdown(
-      [
-        opp({}),
-        opp({}),
-        opp({}),
-        opp({ fields: { "Origen de Lead": "" } }),
-        opp({ fields: { "Origen de Lead": "Meta" } }),
-      ],
-      ORIGEN_FIELDS
-    );
-    const last = rows[rows.length - 1];
-    assert.equal(last.label, NO_VALUE_LABEL);
-    assert.equal(last.key, NO_VALUE_KEY, "la fila Sin dato lleva el centinela");
-    assert.equal(last.count, 4, "sin campo y con campo vacío son lo mismo");
-    assert.equal(last.pct, 80);
-    assert.equal(rows[0].label, "Meta", "Sin dato no compite en el ranking aunque sea mayoría");
-  }
-
-  // 9. Conjunto vacío.
-  {
-    assert.deepEqual(buildCategoryBreakdown([], ORIGEN_FIELDS), []);
+    assert.deepEqual(buildStatusByMonth([]), []);
   }
 
   console.log("verify-breakdown: all assertions passed");
