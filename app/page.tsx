@@ -19,7 +19,10 @@ import {
   applyPanelFilters,
   campaignOptions,
   EMPTY_PANEL_FILTERS,
+  PIPELINES,
+  pipelineOptions,
   type PanelFilters,
+  type PipelineKey,
 } from "@/lib/panel-filters"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -31,6 +34,7 @@ import { useConversationsData } from "@/hooks/use-conversations-data"
 import { useConversationActivity } from "@/hooks/use-conversation-activity"
 import {
   Megaphone,
+  SquareKanban,
   UserRound,
   Warehouse,
   RefreshCw,
@@ -122,7 +126,7 @@ export default function DashboardPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>({ preset: "all" })
   const dateRange = useMemo(() => resolveDateRange(dateFilter), [dateFilter])
 
-  // Los dos filtros de alcance: asesor y campaña. Se aplican aquí, sobre el set
+  // Los tres filtros de alcance: pipeline, asesor y campaña. Se aplican aquí, sobre el set
   // crudo y antes del corte por fecha: las slices filtradas y los sets `all*`
   // que resuelven los drill-downs tienen que ver el mismo universo.
   const [panelFilters, setPanelFilters] = useState<PanelFilters>(EMPTY_PANEL_FILTERS)
@@ -135,6 +139,8 @@ export default function DashboardPage() {
   // Las opciones y sus conteos se calculan SIN los filtros de panel puestos: si
   // se calcularan sobre el set ya filtrado, elegir una campaña dejaría el menú
   // con una sola opción y sin manera de agregar otra.
+  const pipelineMenuOptions = useMemo(() => pipelineOptions(rawOpportunities), [rawOpportunities])
+
   const asesorOptions = useMemo(() => {
     const counts = new Map<string, number>()
     for (const o of rawOpportunities) {
@@ -164,6 +170,10 @@ export default function DashboardPage() {
     // El alcance del reporte incluye los filtros de la barra, no solo la fecha:
     // una portada que calla que el panel está recortado es una portada que miente.
     const parts = [base]
+    if (panelFilters.pipelines.length) {
+      const names = panelFilters.pipelines.map((k) => PIPELINES.find((p) => p.key === k)?.label ?? k)
+      parts.push(`Pipeline: ${names.join(", ")}`)
+    }
     if (panelFilters.asesores.length) {
       const names = panelFilters.asesores.map((k) => ADVISORS.find((a) => a.key === k)?.label ?? k)
       parts.push(`Asesor: ${names.join(", ")}`)
@@ -401,6 +411,15 @@ export default function DashboardPage() {
           onChange={setDateFilter}
           filters={
             <>
+              <MultiSelectFilter
+                label="Pipeline"
+                icon={SquareKanban}
+                options={pipelineMenuOptions}
+                selected={panelFilters.pipelines}
+                onChange={(pipelines) =>
+                  setPanelFilters((f) => ({ ...f, pipelines: pipelines as PipelineKey[] }))
+                }
+              />
               <MultiSelectFilter
                 label="Asesor"
                 icon={UserRound}

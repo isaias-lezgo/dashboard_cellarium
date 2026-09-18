@@ -1,5 +1,5 @@
-// Verification for lib/panel-filters.ts — los dos filtros globales de la barra:
-// asesor y campaña. Correr: pnpm verify:filters
+// Verification for lib/panel-filters.ts — los tres filtros globales de la barra:
+// pipeline, asesor y campaña. Correr: pnpm verify:filters
 //
 // Un filtro silenciosamente mal se ve igual que uno bien: números más chicos.
 // Envuelto en main() en vez de top-level await: este paquete es CJS.
@@ -13,11 +13,19 @@ import {
   applyPanelFilters,
   campaignOptions,
   EMPTY_PANEL_FILTERS,
+  PIPELINES,
+  pipelineKeyOf,
+  pipelineOptions,
 } from "../lib/panel-filters";
 import { scopeOpportunities } from "../lib/panel-scope";
 
 let seq = 0;
-function opp(o: { assignedTo?: string; campaignName?: string; pipelineId?: string }): Opportunity {
+function opp(o: {
+  assignedTo?: string;
+  campaignName?: string;
+  pipelineId?: string;
+  pipelineName?: string;
+}): Opportunity {
   return {
     id: `o${++seq}`,
     name: `Opp ${seq}`,
@@ -28,7 +36,7 @@ function opp(o: { assignedTo?: string; campaignName?: string; pipelineId?: strin
     contactId: `c${seq}`,
     value: 0,
     stage: "Lead Generado",
-    pipelineName: "Ventas",
+    pipelineName: o.pipelineName ?? "Ventas",
     assignedTo: o.assignedTo,
     campaignName: o.campaignName,
   };
@@ -83,14 +91,52 @@ function main() {
     const b = opp({ assignedTo: "Roberto Mendoza", campaignName: "X" });
     const c = opp({ assignedTo: "Carla Moreno" });
     const opps = [a, b, c];
-    assert.deepEqual(applyPanelFilters(opps, { asesores: ["carla"], campanas: [] }), [a, c]);
-    assert.deepEqual(applyPanelFilters(opps, { asesores: ["carla", "roberto"], campanas: ["X"] }), [a, b]);
-    assert.deepEqual(applyPanelFilters(opps, { asesores: [], campanas: [NO_CAMPAIGN_BUCKETS.other] }), [c]);
-    assert.deepEqual(applyPanelFilters(opps, { asesores: ["maria"], campanas: [] }), []);
-    assert.equal(activeFilterCount({ asesores: ["carla", "roberto"], campanas: ["X"] }), 3);
+    assert.deepEqual(applyPanelFilters(opps, { pipelines: [], asesores: ["carla"], campanas: [] }), [a, c]);
+    assert.deepEqual(applyPanelFilters(opps, { pipelines: [], asesores: ["carla", "roberto"], campanas: ["X"] }), [a, b]);
+    assert.deepEqual(applyPanelFilters(opps, { pipelines: [], asesores: [], campanas: [NO_CAMPAIGN_BUCKETS.other] }), [c]);
+    assert.deepEqual(applyPanelFilters(opps, { pipelines: [], asesores: ["maria"], campanas: [] }), []);
+    assert.equal(activeFilterCount({ pipelines: [], asesores: ["carla", "roberto"], campanas: ["X"] }), 3);
   }
 
-  // 5. El scope del panel toma los DOS pipelines y deja fuera cualquier otro.
+  // 5. Pipeline: por nombre sin mayúsculas, id solo cuando el sync no resolvió
+  //    el nombre ("Unknown"); cualquier otro pipeline no cae en ninguno de los dos.
+  {
+    assert.deepEqual(PIPELINES.map((p) => p.key), ["ventas", "perdidos"], "Ventas primero, siempre");
+    assert.equal(pipelineKeyOf(opp({})), "ventas");
+    assert.equal(pipelineKeyOf(opp({ pipelineName: "VENTAS " })), "ventas");
+    assert.equal(pipelineKeyOf(opp({ pipelineName: "Leads perdidos", pipelineId: "QaCg8OLw1hiQPs2dhsAA" })), "perdidos");
+    assert.equal(pipelineKeyOf(opp({ pipelineName: "Unknown", pipelineId: "QaCg8OLw1hiQPs2dhsAA" })), "perdidos");
+    assert.equal(pipelineKeyOf(opp({ pipelineName: "Unknown", pipelineId: "ImCASVNiiPqszAbyXhmf" })), "ventas");
+    assert.equal(pipelineKeyOf(opp({ pipelineName: "Unknown", pipelineId: "otro" })), undefined);
+    assert.equal(pipelineKeyOf(opp({ pipelineName: "Pre-ventas", pipelineId: "ImCASVNiiPqszAbyXhmf" })), undefined, "el nombre manda");
+  }
+
+  // 6. Opciones de pipeline: las dos, en orden fijo, con conteo (0 si no hay).
+  {
+    const v = opp({});
+    const l = opp({ pipelineName: "Leads Perdidos", pipelineId: "QaCg8OLw1hiQPs2dhsAA" });
+    const x = opp({ pipelineName: "Otro", pipelineId: "otro" });
+    assert.deepEqual(pipelineOptions([v, v, l, x]), [
+      { value: "ventas", label: "Ventas", count: 2 },
+      { value: "perdidos", label: "Leads Perdidos", count: 1 },
+    ]);
+    assert.deepEqual(pipelineOptions([]).map((o) => o.count), [0, 0]);
+  }
+
+  // 7. El filtro de pipeline es AND con los otros dos y cuenta en el aviso.
+  {
+    const v = opp({ assignedTo: "Carla Moreno" });
+    const l = opp({ assignedTo: "Carla Moreno", pipelineName: "Leads Perdidos", pipelineId: "QaCg8OLw1hiQPs2dhsAA" });
+    const l2 = opp({ assignedTo: "Roberto Mendoza", pipelineName: "Leads Perdidos", pipelineId: "QaCg8OLw1hiQPs2dhsAA" });
+    const opps = [v, l, l2];
+    assert.deepEqual(applyPanelFilters(opps, { pipelines: ["ventas"], asesores: [], campanas: [] }), [v]);
+    assert.deepEqual(applyPanelFilters(opps, { pipelines: ["perdidos"], asesores: [], campanas: [] }), [l, l2]);
+    assert.deepEqual(applyPanelFilters(opps, { pipelines: ["ventas", "perdidos"], asesores: [], campanas: [] }), opps);
+    assert.deepEqual(applyPanelFilters(opps, { pipelines: ["perdidos"], asesores: ["carla"], campanas: [] }), [l]);
+    assert.equal(activeFilterCount({ pipelines: ["ventas"], asesores: ["carla"], campanas: [] }), 2);
+  }
+
+  // 8. El scope del panel toma los DOS pipelines y deja fuera cualquier otro.
   {
     const v = opp({ pipelineId: "ImCASVNiiPqszAbyXhmf" });
     const l = opp({ pipelineId: "QaCg8OLw1hiQPs2dhsAA" });

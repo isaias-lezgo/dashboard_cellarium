@@ -50,7 +50,7 @@ pnpm verify:attachments  # lib/attachments.ts + lib/attachment-tools.ts — tabu
 pnpm verify:paged        # lib/paged-fetch.ts — resiliencia del abanico de páginas
 pnpm verify:cellarium    # lib/cellarium-rules.ts — perdida por pipeline, ganada por Cierre, motivo, campaña
 pnpm verify:breakdown    # lib/opportunity-breakdown.ts — cubetas de estado por mes
-pnpm verify:filters      # lib/panel-filters.ts + lib/panel-scope.ts — asesor, campaña, los dos pipelines
+pnpm verify:filters      # lib/panel-filters.ts + lib/panel-scope.ts — pipeline, asesor, campaña, los dos pipelines
 pnpm verify:funnel       # lib/funnel.ts — pasos del embudo, Cierre no es paso, % con perdidas
 pnpm verify:campaign     # lib/campaign-breakdown.ts — campaña × estatus
 pnpm verify:month-series # lib/month-series.ts — apilado por mes, plegado en "Otros"
@@ -447,7 +447,7 @@ bug class these modules were extracted to kill.
 | `lib/cellarium-rules.ts` | **perdida / viva / motivo / campaña**, the two pipeline refs, the sentinels (see "Panel scope") |
 | `lib/opportunity-status.ts` | `isWonOpp()` + `WON_STAGE_PATTERN` — canonical "won" detection |
 | `lib/panel-scope.ts` | which two pipelines the panel means; `resolvePipelineId` = Ventas, `resolveLostPipelineId` |
-| `lib/panel-filters.ts` | los dos filtros globales de la barra (asesor, campaña) y `ADVISORS` |
+| `lib/panel-filters.ts` | los tres filtros globales de la barra (pipeline, asesor, campaña), `PIPELINES` y `ADVISORS` |
 | `lib/opportunity-breakdown.ts` | `statusBucket()` (lost-then-won), won/open/lost per month, `monthKeyOf` (local time), `categoryKey` / `mostFrequent` |
 | `lib/funnel.ts` | los pasos del embudo |
 | `lib/campaign-breakdown.ts` | campaña × estatus |
@@ -506,13 +506,18 @@ in the **`pdf-report`** skill.
 - **All GHL API calls are server-only**: `lib/ghl-client.ts` is never imported from client components — only from API routes. This keeps the token out of the browser bundle. Client code reaches GHL data through `lib/ghl-fetchers.ts`, which calls those routes.
 - **`/opportunities/search` uses `location_id` (snake_case)** while most other endpoints use `locationId` (camelCase). The `useSnakeCaseLocationId` flag in `ghlFetch` handles this quirk.
 - **Filtering is entirely client-side**: `lib/date-range.ts` (`DateFilter`, `resolveDateRange`, `filterByDateRange`) filters the already-fetched dataset by date; `components/dashboard/date-range-filter.tsx` is the UI *and* the bar that hosts every other panel-wide filter. The filtered slices are computed in `app/page.tsx` and passed to each dashboard as props. The filter bar is hidden on the AI assistant tab, which always sees the full dataset.
-- **Two panel-wide filters, and they compose in a fixed order** — both live in
+- **Three panel-wide filters, and they compose in a fixed order** — all live in
   `app/page.tsx` and are applied to the opportunity set **before** the date cut, so the
   date-filtered slices and the unfiltered `all*` lookup sets agree. A drill-down must never
   surface a record the charts excluded:
   `data.opportunities` → `applyPanelFilters` → `scopedOpportunities` → `filterByDateRange` → `opportunities`.
-  **`lib/panel-filters.ts`** owns two menus: **Asesor** and **Campaña**
-  (`multi-select-filter.tsx`, one generic component mounted twice). Notes worth keeping:
+  **`lib/panel-filters.ts`** owns three menus: **Pipeline**, **Asesor** and **Campaña**
+  (`multi-select-filter.tsx`, one generic component mounted three times). Notes worth keeping:
+  - **Pipeline** has two fixed options, Ventas and Leads Perdidos (`PIPELINES`,
+    `pipelineKeyOf` — same name-first rule as `isInLostPipeline`). It is a *scope* filter,
+    so with only Ventas checked "Perdidas" drops to the ~48 marked `lost` inside Ventas
+    and the funnel `%` loses the lost from its denominator; with only Leads Perdidos the
+    funnel is empty. That is correct for a pipeline cut, not a bug.
   - **Empty selection = no filter.** Do not "fix" this into an all-selected neutral state:
     with that convention a campaign newly launched in Meta would silently sit outside a
     filter the user believes is off.
