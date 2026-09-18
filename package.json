@@ -14,7 +14,6 @@
     "verify:paged": "tsx scripts/verify-paged-fetch.ts",
     "verify:pivot": "tsx scripts/verify-sales-pivot.ts",
     "verify:breakdown": "tsx scripts/verify-breakdown.ts",
-    "verify:category-filter": "tsx scripts/verify-category-filter.ts",
     "verify:lost-matrix": "tsx scripts/verify-lost-matrix.ts",
     "verify:lost-cross": "tsx scripts/verify-lost-cross.ts",
     "verify:advisors": "tsx scripts/verify-advisors.ts",

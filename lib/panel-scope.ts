@@ -1,60 +1,70 @@
-// Single source of truth for what each business-line panel *is*.
+// Single source of truth for what the panel *is*.
 //
-// In this deployment the pipeline IS the business line: every chart in the VAEO
-// tab counts only opportunities in the VAEO pipeline, and likewise for MESH.
-// Both pipelines live in the same GHL sub-account, so the split is client-side.
-//
-// The sucursal lives in a DIFFERENT custom field per panel ("Sucursal VAEO" vs
-// "Sucursal MESH"), which is why the field name is part of the scope and not
-// hardcoded in a chart.
+// Cellarium tiene UN negocio y DOS pipelines: "Ventas" es el embudo y "Leads
+// Perdidos" es donde van las perdidas (sus etapas son los motivos). El panel
+// cuenta la unión de los dos: una perdida tiene que seguir contando como lead
+// del mes en que entró, y un scope de un solo pipeline la haría desaparecer.
 import type { Opportunity, Pipeline } from "./types"
+import { LOST_PIPELINE, VENTAS_PIPELINE } from "./cellarium-rules"
 
-export type PanelId = "vaeo" | "mesh"
+export type PanelId = "cellarium"
 
-export interface PanelScope {
-  /** Pipeline name as it reads in GHL; also the matching key. */
+interface PipelineRef {
+  /** Nombre como se lee en GHL; también la clave de match. */
   label: string
   /** Fallback only — used when no pipeline matches by name. */
-  pipelineId: string
-  /** Name of the opportunity custom field holding the branch. */
-  sucursalField: string
+  id: string
+}
+
+export interface PanelScope {
+  label: string
+  /** El embudo vivo: de aquí salen las etapas del funnel y de la tabla por asesor. */
+  funnel: PipelineRef
+  /** La cubeta de perdidas. */
+  lost: PipelineRef
 }
 
 export const PANEL_SCOPES: Record<PanelId, PanelScope> = {
-  vaeo: {
-    label: "VAEO",
-    pipelineId: "MiATYfkJWklaXqYc7hOr",
-    sucursalField: "Sucursal VAEO",
-  },
-  mesh: {
-    label: "MESH",
-    pipelineId: "DkZiRWdizgMRt7osjuRb",
-    sucursalField: "Sucursal MESH",
+  cellarium: {
+    label: "Cellarium",
+    funnel: VENTAS_PIPELINE,
+    lost: LOST_PIPELINE,
   },
 }
 
+function resolve(pipelines: Pipeline[] | undefined, ref: PipelineRef): string {
+  const match = pipelines?.find(
+    (p) => p.name.trim().toLowerCase() === ref.label.toLowerCase()
+  )
+  return match?.id ?? ref.id
+}
+
 /**
- * Resolve the panel's pipeline id, preferring a NAME match over the hardcoded
- * id. Same reasoning as isWonOpp()'s stage matching: a pipeline that gets
- * recreated keeps its name but not its id.
+ * El pipeline del EMBUDO (Ventas), preferring a NAME match over the hardcoded
+ * id — a pipeline that gets recreated keeps its name but not its id. Es el que
+ * consumen panelStageOrder() y el funnel; el de perdidas va aparte.
  */
 export function resolvePipelineId(
   pipelines: Pipeline[] | undefined,
   panel: PanelId
 ): string {
-  const scope = PANEL_SCOPES[panel]
-  const match = pipelines?.find(
-    (p) => p.name.trim().toLowerCase() === scope.label.toLowerCase()
-  )
-  return match?.id ?? scope.pipelineId
+  return resolve(pipelines, PANEL_SCOPES[panel].funnel)
 }
 
-/** Every opportunity that belongs to this panel's business line. */
+export function resolveLostPipelineId(
+  pipelines: Pipeline[] | undefined,
+  panel: PanelId
+): string {
+  return resolve(pipelines, PANEL_SCOPES[panel].lost)
+}
+
+/** Every opportunity that belongs to the panel: Ventas ∪ Leads Perdidos. */
 export function scopeOpportunities(
   opps: Opportunity[],
   panel: PanelId,
   pipelines?: Pipeline[]
 ): Opportunity[] {
-  const pipelineId = resolvePipelineId(pipelines, panel)
-  return opps.filter((o) => o.pipelineId === pipelineId)
+  const funnel = resolvePipelineId(pipelines, panel)
+  const lost = resolveLostPipelineId(pipelines, panel)
+  return opps.filter((o) => o.pipelineId === funnel || o.pipelineId === lost)
 }
