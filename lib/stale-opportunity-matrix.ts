@@ -7,6 +7,7 @@
 //
 // Puro y sin React, verificado por scripts/verify-stale-matrix.ts.
 import type { Opportunity } from "./types"
+import { isLiveOpp } from "./cellarium-rules"
 
 /**
  * Hasta dónde tiene que mirar hacia atrás quien alimente el eje de mensajes.
@@ -52,17 +53,6 @@ export const STALE_BUCKETS: readonly StaleBucketDef[] = [
 export const CRITICAL_FROM_INDEX = 2
 
 const DEEPEST: StaleBucketKey = "60+"
-
-// Se excluyen por NOMBRE, nunca por id — un embudo recreado conserva el nombre
-// pero no el id, misma regla que isWonOpp(). "Cliente Futuro" es un
-// estacionamiento deliberado: ahí el silencio es la intención, no el abandono.
-const CLOSED_STAGE_PATTERNS = [/ganad[oa]|\bwon\b/i, /perdid/i, /cliente\s+futuro/i]
-
-/** ¿La etapa pertenece al embudo VIVO (ni ganada, ni perdida, ni estacionada)? */
-export function isLiveStage(stage: string): boolean {
-  const s = (stage ?? "").trim()
-  return !CLOSED_STAGE_PATTERNS.some((re) => re.test(s))
-}
 
 /**
  * Días enteros transcurridos desde `iso` hasta `now`. `null` cuando no hay dato
@@ -156,8 +146,9 @@ export function buildStaleMatrix(
   let grandTotal = 0
 
   for (const o of opportunities) {
-    if (o.status !== "open") continue
-    if (!isLiveStage(o.stage ?? "")) continue
+    // El embudo vivo de Cellarium: ni ganada (won / Cierre) ni perdida (Leads
+    // Perdidos o lost/abandoned). Ver lib/cellarium-rules.ts.
+    if (!isLiveOpp(o)) continue
 
     const moveKey = bucketOfDays(daysSince(o.lastStageChangeAt ?? o.createdAt, now))
     const msgKey = bucketOfDays(daysSince(lastOutboundByContact.get(o.contactId) ?? null, now))

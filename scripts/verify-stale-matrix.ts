@@ -16,7 +16,6 @@ import {
   buildStaleMatrix,
   daysSince,
   CRITICAL_FROM_INDEX,
-  isLiveStage,
   STALE_BUCKETS,
   type StaleBucketKey,
 } from "../lib/stale-opportunity-matrix";
@@ -94,35 +93,16 @@ async function main() {
     assert.equal(daysSince(new Date(NOW.getTime() + 86_400_000).toISOString(), NOW), 0);
   }
 
-  // 3. El universo excluye Ganado / Perdido / Cliente Futuro POR NOMBRE, en sus
-  //    dos grafías, y respeta el status.
+  // 3. Universo: el embudo vivo de Cellarium. Fuera las de Leads Perdidos aunque
+  //    su status diga open, fuera Cierre, fuera won/lost/abandoned.
   {
-    assert.ok(isLiveStage("Nuevo Lead"));
-    assert.ok(isLiveStage("Lead Perfilado"));
-    assert.ok(isLiveStage("Lead perfilado"), "la grafía de MESH también es viva");
-    assert.ok(isLiveStage("Propuesta"));
-    assert.ok(isLiveStage("Negociación"));
-    assert.ok(!isLiveStage("Ganado"));
-    assert.ok(!isLiveStage("ganada"));
-    assert.ok(!isLiveStage("09. Negocio Ganado"));
-    assert.ok(!isLiveStage("Perdido"));
-    assert.ok(!isLiveStage("perdida"));
-    assert.ok(!isLiveStage("Cliente Futuro"));
-    assert.ok(!isLiveStage("cliente  futuro"), "espacios de más no lo salvan");
-  }
-
-  {
-    const opps = [
-      opp({ stage: "Lead en proceso" }),
-      opp({ stage: "Ganado" }),
-      opp({ stage: "Perdido" }),
-      opp({ stage: "Cliente Futuro" }),
-      opp({ stage: "Lead en proceso", status: "won" }),
-      opp({ stage: "Lead en proceso", status: "lost" }),
-      opp({ stage: "Lead en proceso", status: "abandoned" }),
-    ];
-    const m = buildStaleMatrix(opps, new Map(), NOW);
-    assert.equal(m.grandTotal, 1, "solo la abierta en etapa viva entra");
+    const live = opp({ stage: "Contactado", movedDaysAgo: 7 });
+    const inLost = { ...opp({ stage: "Equivocado", movedDaysAgo: 7 }), pipelineName: "Leads Perdidos" };
+    const cierre = opp({ stage: "Cierre", movedDaysAgo: 7 });
+    const won = opp({ stage: "Contactado", movedDaysAgo: 7, status: "won" });
+    const lost = opp({ stage: "Contactado", movedDaysAgo: 7, status: "lost" });
+    const m = buildStaleMatrix([live, inLost, cierre, won, lost], new Map(), NOW);
+    assert.equal(m.grandTotal, 1, "solo la viva entra");
   }
 
   // 4. Eje de movimiento: lastStageChangeAt manda; sin él, createdAt.

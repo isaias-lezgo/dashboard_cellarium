@@ -221,10 +221,9 @@ export function StaleOpportunityMatrix({
             label="Embudo vivo · a la fecha de hoy"
             tooltip={
               <>
-                Solo oportunidades <strong>abiertas</strong> del embudo{" "}
-                <strong>{scope.label}</strong>, sin las etapas Ganado, Perdido ni Cliente
-                Futuro (esta última es un estacionamiento deliberado: ahí el silencio es la
-                intención). <strong>No respeta el filtro de fechas</strong> — &ldquo;sin
+                Solo oportunidades del embudo <strong>Ventas</strong> que siguen en juego:
+                ni en Cierre ni en Leads Perdidos, ni marcadas ganadas o perdidas.{" "}
+                <strong>No respeta el filtro de fechas</strong> — &ldquo;sin
                 atención en 60 días&rdquo; es una condición de hoy, no de un periodo.{" "}
                 <strong>Movimiento</strong> significa cambio de <em>etapa</em>, no cualquier
                 edición: las automatizaciones tocan la oportunidad todo el tiempo y
