@@ -120,15 +120,22 @@ export function isMissingLabel(label: string): boolean {
   return /^sin\s/i.test(label.trim())
 }
 
-type AxisTickProps = TextProps & { payload?: { value?: string | number } }
+type AxisTickProps = TextProps & {
+  payload?: { value?: string | number }
+  /** Recharts se lo pasa al tick custom en vez de aplicarlo él; aquí se honra. */
+  tickFormatter?: (value: string | number) => string
+}
 
 /**
  * Tick de eje que tiñe de rojizo la etiqueta de una cubeta centinela y deja el
  * resto en el gris de CHART_TICK. Usa el `Text` de Recharts —el mismo que monta
  * el eje por dentro— para no recalcular a mano la geometría del tick.
  */
-export function MissingAwareTick({ payload, ...props }: AxisTickProps) {
-  const value = String(payload?.value ?? "")
+export function MissingAwareTick({ payload, tickFormatter, ...props }: AxisTickProps) {
+  const raw = String(payload?.value ?? "")
+  // La centinela se detecta sobre el valor CRUDO: un formatter que recorte
+  // "Sin campaña" a "Sin cam…" no debe apagar el tinte.
+  const value = tickFormatter ? tickFormatter(payload?.value ?? "") : raw
   return (
     <Text
       {...props}
@@ -138,7 +145,7 @@ export function MissingAwareTick({ payload, ...props }: AxisTickProps) {
       // presentación. Sin el `!` el tick se queda gris.
       className={cn(
         "recharts-cartesian-axis-tick-value",
-        isMissingLabel(value) && "!fill-missing"
+        isMissingLabel(raw) && "!fill-missing"
       )}
       fontSize={CHART_TICK.fontSize}
     >

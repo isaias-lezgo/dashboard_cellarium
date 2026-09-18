@@ -23,6 +23,7 @@
     "verify:cellarium": "tsx scripts/verify-cellarium.ts",
     "verify:month-series": "tsx scripts/verify-month-series.ts",
     "verify:funnel": "tsx scripts/verify-funnel.ts",
+    "verify:campaign": "tsx scripts/verify-campaign.ts",
     "db:migrate": "tsx --env-file-if-exists=.env.local scripts/db-migrate.ts",
     "add-client": "tsx scripts/add-client.ts"
   },

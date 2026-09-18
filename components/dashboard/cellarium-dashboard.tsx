@@ -19,6 +19,7 @@ import { DashboardShell, SectionHeader } from "./dashboard-ui"
 import { FunnelChart } from "./funnel-chart"
 import { OpportunityStatusChart } from "./opportunity-status-chart"
 import { AdvisorStageTable } from "./advisor-stage-table"
+import { CampaignBreakdownChart } from "./campaign-breakdown-chart"
 import { AssignmentFunnelChart } from "./assignment-funnel-chart"
 import { StaleOpportunityMatrix } from "./stale-opportunity-matrix"
 import { TaskBacklogChart } from "./task-backlog-chart"
@@ -134,7 +135,8 @@ export function CellariumDashboard({
       <AssignmentFunnelChart {...shared} />
 
       <SectionHeader title="Campañas" />
-      {/* Task 9: <CampaignBreakdownChart {...shared} /> · Task 10: <CampaignMonthChart {...shared} /> */}
+      <CampaignBreakdownChart {...shared} />
+      {/* Task 10: <CampaignMonthChart {...shared} /> */}
 
       <SectionHeader title="Sin atención" />
       <StaleOpportunityMatrix
