@@ -22,6 +22,7 @@ import { AssignmentFunnelChart } from "./assignment-funnel-chart"
 import { StaleOpportunityMatrix } from "./stale-opportunity-matrix"
 import { TaskBacklogChart } from "./task-backlog-chart"
 import { LostReasonMatrix } from "./lost-reason-matrix"
+import { NoOpportunityCard } from "./no-opportunity-card"
 
 /**
  * El panel de Cellarium: un solo negocio, tres bloques —embudo, campañas y sin
@@ -111,7 +112,18 @@ export function CellariumDashboard({
 
   return (
     <DashboardShell>
-      {/* Task 7: <NoOpportunityCard …/> va aquí, arriba de todo. */}
+      <NoOpportunityCard
+        contacts={contacts}
+        unfilteredOpportunities={unfilteredOpportunities}
+        allOpportunities={allOpportunities}
+        allContacts={allContacts}
+        tasks={tasks}
+        calls={calls}
+        allPautas={allPautas}
+        appointments={appointments}
+        messages={messages}
+        locationId={locationId}
+      />
 
       <SectionHeader title="Embudo" />
       {/* Task 8: <FunnelChart {...shared} /> va aquí. */}
